@@ -1,0 +1,244 @@
+Changelog V1.1 (January the 27th 2019) by DeeperBlue :
+    - All Presearing farm available
+        - Upgraded Belt farm
+        - Added Dull carapace farm
+        - Added Baked husks farm
+        - Added Charr carving farm
+            - Added UseLever() function
+        - Added Enchanted lodestone farm
+        - Added Gargoyle skull farm
+        - Added Necklace farm
+        - Added Icy lodestone farm
+        - Added Red Iris flower farm
+        - Added Skale Fin farm
+        - Added Skeletal limb farm
+        - Added Spider leg farm
+        - Added Unnatural seed farm
+	- Added LDoA1 - lvl2 to 10 (based on Aidenn)
+	- GUI update
+		- Added farm selector
+		- Added total time running
+		- Added Runs
+        - Added Fails counter
+	- Added Profession detection : Build adaptability
+    - Added Merchants coord for all towns
+    - Updated Selling functions for all farms
+    - PopStone function now check player's level
+
+Changelog V1.2 (January the 29th 2019) by DeeperBlue :
+	- Cleaned OmniFarm_Bot - Presearing.au3's code. Put functions in regions and intensly commented the code to make it easier to understand for everybody.
+	- GUI update 
+		- Added a SellBag selector (unchecked bag = ignore the bag while selling)
+		- Added a RunToTowns selectors
+		- Added a Job selector de-activation while the bot is doing the job (befor, you were able to cause a bug by changing the job between the bot was exiting outpost and start farming. This made the bot try to farm with the other Farm path causing bug).
+		- Selectors de-activate when user selects a job or a run, preventing user form selecting both run and farm at the same time (user can re-enable interface by setting selector back to default).
+		- GUI de-activates itself when the user hits Start.
+		- GUI re-activates itself after pressing Pause button and finishing the last action the bot was doing (farm/run).
+		- Offline checkbox is currently disabled because OfflineMod() causes a bug with Loadings.
+	- Re-enable rendering of GW window befor closing the bot.
+	- Added a RunToTowns function that makes the bot run from Ascalon City to the selected outpost (usefull when creating a new character).
+	- Does not sell ID kits/Charr bags/Charr salvage kit anymore.
+	- Added delays to the spider farm. The bot wait a bit longer for the spiders to spawn.
+	- In Charr farm : Does not pull the lever twice anymore (opening and closing the door at once).
+	- In Charr farm : The re-try counter at the door is now able to count the re-tries properly.
+	- Added MoveXYZ and MoveToXYZ functions that takes the Z coord for moving in multiple layers zones (ex : under charrs bridge).
+	- In Charr farm : The bot use a faster path to go through door and check for coords on the Z-axis.
+	- Charr farm is a bit less messy, the bot is able to kill charrs groups sometimes (still not efficient enough : Win/fail ratio ~ 1/8 at lvl15 with Summonning Stone)
+    - BuildForProfession() checks if the player is in an outpost (if not it teleports player to the outpost linked to the farm selected) befor trying to load a build (it was causing crash when you started the bot while being outside).
+	- All functions involving Outposts' MapIDs call GetStartMapByJobID function to get the Outpost's ID insteed of having hard-coded IDs in each functions.
+	- In Baked Husks Farm : The bot detects and kills Plague Worms properly.
+    - In Spider Legs Farm : The bot wait a bit more for the spiders to spawn befor killing. Therefor it does not skip spiders anymore.
+
+Changelog V1.3 (January the 29th 2019) by DeeperBlue :
+    - The bot teleports back to town after finishing a farm.
+    - The bot keeps 2 empty slots for ID kits.
+    - Go to merchant, buy kit and sell items properly.
+    - The bot tries pickup items only if inventory is not full.
+    - In Spider Legs Farm : Added a bit more waiting time again.
+    
+Changelog V1.4 (January the 31th 2019) by DeeperBlue :
+    - GUI Update :
+        - Added a Go to Nicholas checkbox
+    - Added a function to make the bot go to trade Nicholas Standford once (you have to have at least 26 of each farmable items).
+    - Bot Targets and uses spells on spiders, worms, aloes, ice elemental correctly (and any other farms it already did correctly).
+    - Bot does not randomly stop right befor portal while it tries passing through.
+	- Enhanced target tracking and skill targetting on Special enemies (like Worms).
+	- Added more checks in paths to know if the player is dead.
+	- In Charr farm : Added some pulls to try to make the charrs attack your fire imp &/or pet (if player have one) insteed of the player.
+    - Icy lodestone farm is fully functional.
+    - Reworked the Skill casting function to make it focus every enemies type (Agressive like Charrs, passive like Wroms,...).
+    
+Changelog V1.5 (February the 03th 2019) by DeeperBlue : 
+	- GUI Update :
+        - Reworked GUI (made it a bit more compact).
+		- Added 2 new options in the Job selector (All farm items 26 and All farm items 250)
+        - Added a "Don't sell Purple Items" checkbox.
+        - Added pickup checkboxes for item rarity.
+    - Added a pickup item function by rarity (the bot is gonna pickup nicholas' items even if user does not check the pickup White checkbox).
+    - Added the All farm farm items function which make the bot do all farm until it has 26 or 250 of each farmable items.
+	- Added GetItemModelByFarm function which returns the item's modelID based on the FarmID.
+	- Bot in now able to use Ether Feast properly.
+    - Added a DontSellPurple check to the CanSell() function, which will keep purple items when checkbox is checked.
+	- Bot does sell white charrs' armors.
+    - Swapped the PickUpLoot function for a more efficient and better adapted one.
+    - The Summoning Stone function won't try to pop stone anymore if the player is under summoning debuff.
+	- In Charr Farm : Added paths for the bot to kill boss.
+    - In Charr Farm : If bot dies, it will go back to last charrs' group and re-try.
+    - In Charr Farm : Fixed a bug that made the bot display "Moving to First Charr's group" too early in the run.
+    
+Changelog V1.5.1 (February the 03th 2019) by DeeperBlue : 
+    - GUI Update :
+        - Added a Rarity : Gold pickup checkbox.
+        - Compacted GUI pickup by rarity.
+        - Properly disabling "Don't sell purple" and Pickup item by rarity checkboxes.
+    - Fixed a bug that made the bot crash when it tried to go back to checkpoint.
+    - Fixed a bug that made the bot not properly pickup items by rarity.
+    - Bot pickups gold coins.
+    - Trying to optimize Charr farm path.
+    
+Changelog V1.6.0 (February the 03th 2019) by DeeperBlue : 
+    - GUI Update :
+        - Added radios that check all checkboxes in the group they are in.
+    - Added RadioHandler function.
+    - Fixed a bug that made pickup function run sometimes into an infinite loop.
+    - Grawls Farm : Moved Grawls farm to another more efficient spot (found by Bad Head Trip, thanks for help).
+    - Aloes Farm : Moved Aloes farm to another more efficient spot.
+    - Bot in now able to use Vampiric Gaze properly.
+    
+Changelog V1.6.1 (February the 03th 2019) by DeeperBlue : 
+    - The bot does not display "ERROR : Get level 10 with LDoA 2-10 befor farming" anymore when it is currently doing LDoA1. 
+
+Changelog V1.7.0 (February the 09th 2019) by DeeperBlue :
+    - GUI Update :
+        - Added a Survivor Title checkbox which allows user to do Survivor title in LDoA 11-20.
+    - Survivor related functions (activated when survivor checkbox is checked) - IN LDOA 11-20 ONLY:
+        - Player's survivor title's rank is displayed in console at the start of each run.
+        - Added Functions to check for player's health in LDoA 11-20 
+        - The bot will resign and restart run if the player is in danger (low-health).
+    - Bot won't pickup the Beatifull Feather anymore (in Baked Husks Farm).
+    - Bot will pickup Pcons and Event items.
+    - Updated to use a newer version of GWA2 :
+        - Picking up items and selling them properly.
+        
+Changelog V1.7.1 (February the 10th 2019) by DeeperBlue :
+    - GUI Update :
+        - GUI starts by being disabled : Preventing the user from Starting bot befor selecting a character.
+        - If Action:Run selected : Checkboxes are disabled because bot won't use these settings for a run.
+        - If Action:Job selected : Checkboxes are enabled according to what can be used for the job selected.
+        - If LDoA 11-20 selected : User will be able to choose between LDoA stops level19 and Do Survivor Title.
+    
+Changelog V1.7.2 (February the 10th 2019) by DeeperBlue :
+    - GUI Update :
+        - Survivor checkbox is properly deactivated when starting job.
+    - The Bot will travel to random regions when it needs to travel to an outpost (excluding the american region of course).
+    - Bot does abandon and take back the LDoA 2-10 quest when all charrs have been killed by mistake.
+    - Bot resigns AND returns to outpost when user has pressed Pause button.
+    - In Farm 26 and Farm 250 : Bot does Pause/Force Pause properly.
+    
+Changelog V1.7.3 (February the 12th 2019) by DeeperBlue :
+    - Added a newer rendering function.
+    
+Changelog V1.7.4 (February the 16th 2019) by DeeperBlue :
+    - Modified the Build and UseSkill functions to make the player be able use a character with no secondary profession to farm.
+	- Modified CastSkill function to make it able to appropriatly cast selftargetedAoE skills only when mobs are in the AoE's range. 
+    - Fixed the function that is checking for Summoning Debuff : The bot does not anymore tries to pop stone when debuff is present.
+	- In LDoA2-10 : Fixed a bug that made the sometimes not be able to abandon and pickup the quest after killing all charrs by mistake.
+
+Changelog V1.8.0 (February the 17th 2019) by DeeperBlue :
+    - GUI Update :
+        - Added a Pcons group and checkboxes.
+        - Offline checkbox is BACK and available.
+    - Added functions to make the bot use pcons based on checkboxes.
+    - Fixed the offline function to put player's status as Offline when checked.
+    - Added a new movement function which :
+        - Checks for player's health and use heal if low (under 75%).
+        - Checks if mobs are in player's aggro zone and will attack them.
+        - After killing mobs, the bot will pickup items.
+        - Checks if summoning stone is popped and pop it if not.
+    - In Charr farm : Using the new movement function mentionned above. 
+    - Added one more move to LDoA(2-10) to make sure that it is gonna take xp.
+    - Fixed a bug that made the bot sometimes unable to go back to an outpost when starting while player is in an explorable zone.
+    - Fixed pointers in gold related functions making the bot able to check player's gold and buy things at the merchant.
+
+Changelog V1.9.0 (February the 21th 2019) by DeeperBlue :
+	- GUI update :
+		- Fixed some cases where some parts of the GUI stayed activated when it should be deactivated.
+		- Added Checkboxes for the user to choose which other dyes he wants the bot to pickup and keep.
+        - "Selling item" won't be displayed anymore in console if the item targeted is not currently being sold.
+        - Added an "Identifying item" message in console similar to the "Selling item" one.
+    - Added a call to pop summoning stone in the KillMobs function making the bot able to summon imp during combat.
+    - Updated to optimised builds, no attribute points are wasted anymore.
+    - Optimised skill casting : The bot won't cast an enchant/glyph/buff on himself is already affected by.
+    - The bot picks up Black and white dyes no matter what is checked
+	- Added a function to count and prints number of dyes based on what have been selected on GUI.
+	- In Gargoyls Skulls Farm : The bot do run-back and forth through Catacombs' portal while the inventory is not full, insteed of always restarting back to the town.
+ 
+Changelog V1.9.1 (February the 22th 2019) by DeeperBlue : 
+    - Fixed Dye related functions.
+    - Fixed a bug that made the bot stand right befor Catacombs portal when going back and forth.
+    
+Changelog V1.9.2 (February the 23th 2019) by DeeperBlue : 
+    - GUI Update :
+        - Minor console messages update.
+        - Radio's dye fixed.
+        - Added a pink dye checkbox
+    - Added pink dye related functions
+    - Added Pink dye declaration in Addons.au3
+    - In LDoA(2-10) : Added a pull on charrs, insteed of standing right between them.
+
+Changelog V2.0 (March the 25th 2019) by DeeperBlue :
+    - GUI update :
+		- Resized the GUI to make it smaller.
+		- Added Tabs insteed of having every options in one gigantic window.
+		- Added Progress bars to visually track bot's progression (Survivor and Inventory fullness)
+        - Added a Charrs Boss farm option in the job selector.
+		- Modified GUI coord code to make it more flexible.
+    - Switched the previous Charr carving farm to the Charrs Boss farm.
+    - Modified the Charr carving farm to make the bot kill the two first groups of charrs and go back to portal.
+        - The bot will rezone back and forth until the inventory is full.
+    - Modified the re-try to pass charr's door loop to make it more efficient.
+	- Added InventoryFullness_Display and LDoASurvivor_Display to handle progress bars in GUI.
+	- Inventory fullness is updated each times at start and when the bot checks if the inventory is full (pickup,selling).
+	- Survivor progress is updated at each end of the LDoA(11-20) if survivor is checked.
+    - Added a check to do the bot restart when blocked > 100.
+    - Added build codes to make the bot adjust attribute points for each levels above 10.
+	- Added special LDoA survivor builds for Mo/... and .../Mo characters for each levels above 10.
+    - In LDoA 11-20 Survivor mod : 
+		- Adjusted Danger detection limit from 25%HP to 30%HP.
+		- The bot will instant teleport to town if any danger is detected (HP below 30%) insteed of resign.
+    - Added Ranger pet related functions to detect and revive it according to character's profession and pet presence.
+	- Optimised skills using by making bot checks if character's energy is sufficient befor trying to cast a skill.
+    - Cleared and commented Skills related functions.
+    - Added a check in the scan function for special mobs (like worms) based on PlayerNumber to prevent the bot from killing bandits insteed of worms etc...
+    - Fixed a bug on Restart checks to prevent the bot from continuing to farm when "Force Pause" button has been pressed.
+    - Modified the KillMobs function to make it more reactive.
+    - Reduced the amount of messages displayed in the console (like blocked, debuff,...).
+
+Changelog V2.1 (March the 4th 2019) by DeeperBlue :
+    - GUI Update :
+        - Fixed a bug that made Survivor title xp number display unproperly.
+    - In Charr farms : Added a check when bot is blocked to find out if the player is at the revive sanctuary and go back to checkpoint insteed of restarting run.
+    - LDoA2-10 properly checking for QuestState.
+    - LDoA11-20 Survivor mod : Fixed a bug that prevented the bot from using skills.
+    - LDoA11-20 now pausing the bot insteed of spamming "Level : 19" as an infinite loop in the console, when Level19 stop is checked.
+    - Fixed a bug in the cast engine.
+    
+Changelog V2.2 (July the 13th 2019) by DeeperBlue :
+    - Fixed GW_OmniAPI :
+        - GWA2 (thanks to RiflemanX).
+        - GWA2 Headers.
+    - LDoA2-10 properly checking for QuestState.
+    - LDoA11-20 now pausing the bot insteed of spamming "Level : 19" as an infinite loop in the console, when Level19 stop is checked.
+    - Fixed a bug in the cast engine.
+
+Changelog V2.3 (July the 15th 2019) by DeeperBlue :
+    - GUI Update :
+        - In Options tab : Added a Save configs button.
+        - Saved configs will be loaded when you start the bot next time.
+    - In Charr carvings & Charr boss farm : Fixed the bug that made the bot get disconnected when trying to pass under the bridge to go to charr's map.
+
+Changelog V2.3.1 (July the 16th 2019) by DeeperBlue :
+    - Added _HasEffect function back to the new GWA2.
+
+Changelog V2.3.2 (July the 16th 2019) by DeeperBlue :
+    - Fixed GWA2.

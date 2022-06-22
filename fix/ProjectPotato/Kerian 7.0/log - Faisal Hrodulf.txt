@@ -1,0 +1,268 @@
+Check inventory
+Changing Weapons: Slot-2 Keiran Bow
+Entering Quest
+Running Quest
+Changing weapons to best bow
+Waiting For Enemies
+Main Path 1
+Main Path 2
+Main Path 3
+Main Path 4
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Main Path 6
+Trying to skip this group
+Trying to Skip Forest
+Obstructed
+Obstructed
+Killing Forest Mob
+Leaving Forest
+Main Path 16
+Detour 17
+Detour 18
+Detour 19
+Detour 20
+Detour 22
+Detour 23
+Picking up gold coins
+Final Area 30
+Final Area 31
+Final Area 32
+Final Area 33
+Waiting For Enemies
+Waiting For Enemies
+Finished a cycle in 8 minutes.
+Success
+Check inventory
+Changing Weapons: Slot-2 Keiran Bow
+Entering Quest
+Running Quest
+Changing weapons to best bow
+Waiting For Enemies
+Main Path 1
+Main Path 2
+Main Path 3
+Main Path 4
+Main Path 6
+Trying to skip this group
+Picking up gold coins
+Trying to Skip Forest
+Obstructed
+Killing Forest Mob
+Leaving Forest
+Main Path 16
+Detour 17
+Detour 18
+Picking up gold coins
+Detour 19
+Detour 20
+Detour 22
+Detour 23
+Final Area 30
+Final Area 31
+Final Area 32
+Final Area 33
+Waiting For Enemies
+Waiting For Enemies
+Finished a cycle in 8 minutes.
+Success
+Check inventory
+Changing Weapons: Slot-2 Keiran Bow
+Entering Quest
+Running Quest
+Changing weapons to best bow
+Waiting For Enemies
+Main Path 1
+Main Path 2
+Main Path 3
+Main Path 4
+Obstructed
+Main Path 6
+Trying to skip this group
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Trying to Skip Forest
+Killing Forest Mob
+Leaving Forest
+Main Path 16
+Detour 17
+Detour 18
+Detour 19
+Detour 20
+Detour 22
+Detour 23
+Spirit found, running to waypoint 14
+Back to normal route
+Picking up gold coins
+Final Area 30
+Final Area 31
+Final Area 32
+Final Area 33
+Waiting For Enemies
+Waiting For Enemies
+Finished a cycle in 8 minutes.
+Success
+Check inventory
+Changing Weapons: Slot-2 Keiran Bow
+Entering Quest
+Running Quest
+Changing weapons to best bow
+Waiting For Enemies
+Main Path 1
+Main Path 2
+Main Path 3
+Main Path 4
+Obstructed
+Main Path 6
+Trying to skip this group
+Trying to Skip Forest
+Obstructed
+Killing Forest Mob
+Leaving Forest
+Main Path 16
+Detour 17
+Detour 18
+Detour 19
+Detour 20
+Detour 22
+Detour 23
+Obstructed
+Final Area 30
+Final Area 31
+Final Area 32
+Final Area 33
+Waiting For Enemies
+Obstructed
+Obstructed
+Picking up gold coins
+Waiting For Enemies
+Finished a cycle in 10 minutes.
+Success
+Check inventory
+Changing Weapons: Slot-2 Keiran Bow
+Entering Quest
+Running Quest
+Changing weapons to best bow
+Waiting For Enemies
+Main Path 1
+Main Path 2
+Main Path 3
+Main Path 4
+Main Path 6
+Trying to skip this group
+Trying to Skip Forest
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Meteor Shower/Roj detected moving
+Obstructed
+Picking up gold coins
+Killing Forest Mob
+Leaving Forest
+Main Path 16
+Picking up gold coins
+Detour 17
+Detour 18
+Obstructed
+Obstructed
+Detour 19
+Detour 20
+Detour 22
+Detour 23
+Final Area 30
+Final Area 31
+Final Area 32
+Final Area 33
+Waiting For Enemies
+Picking up gold coins
+Waiting For Enemies
+Finished a cycle in 9 minutes.
+Success
+Check inventory
+Changing Weapons: Slot-2 Keiran Bow
+Entering Quest
+Running Quest
+Changing weapons to best bow
+Waiting For Enemies
+Main Path 1
+Main Path 2
+Main Path 3
+Main Path 4
+Obstructed
+Main Path 6
+Trying to skip this group
+Trying to Skip Forest
+Killing Forest Mob
+Leaving Forest
+Main Path 16
+Detour 17
+Detour 18
+Detour 19
+Detour 20
+Detour 22
+Detour 23
+Obstructed
+Final Area 30
+Final Area 31
+Final Area 32
+Final Area 33
+Waiting For Enemies
+Waiting For Enemies
