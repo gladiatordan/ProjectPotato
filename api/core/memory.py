@@ -11,7 +11,9 @@ import struct
 
 
 
-PROCESS_ALL_ACCESS = 0x1F0FFF              # process open access rights
+PROCESS_ALL_ACCESS 	= 0x1F0FFF              # process open access rights
+MEM_COMMIT			= 0x00001000			# commit memory
+MEM_RESERVE			= 0x00002000			# reserve memory
 
 
 
@@ -121,22 +123,15 @@ class MemoryBuffer:
 class ProcessMemory:
 	"""
 	
-	Singleton used when dealing with any memory-related functionality in the API
+	Instance used when dealing with memory of a target process
 	
 	
 	"""
-	_instance = None
-
-	def __new__(cls, *args, **kwargs):
-		if cls._instance is None:
-			cls._instance = super().__new__(cls)
-		return cls._instance
-
-
 	def __init__(self, pid):
 		self._kernel32 = ctypes.WinDLL("kernel32.dll")
-		self.pid = pid   	# ProcessID
-		self._proc = None	# Process Handle
+		self.pid = pid   			# ProcessID
+		self._proc = None			# Process Handle
+		self.entry_point = None		# Address of entry_point from VirtualAllocX
 	
 
 	def memory_open(self) -> None:
@@ -244,3 +239,55 @@ class ProcessMemory:
 		if not self._proc:
 			self.memory_open()
 		self._kernel32.SetProcessWorkingSetSizeEx(self._proc, 1, mem_size, 6)
+
+
+	def allocate_memory(self, size: int, protect: int = 0x40) -> int:
+		"""
+		
+		Allocates memory in the target process using VirtualAllocEx.
+
+		 :param size: The size of the memory block to allocate.
+		 :param protect: Memory protection desired (default: PAGE_EXECUTE_READWRITE)
+
+		:return: Address of the allocated memory in the remote process.
+		"""
+		if not self._proc:
+			self.memory_open()
+		
+		VirtualAllocEx = self._kernel32.VirtualAllocEx
+		VirtualAllocEx.restype = wintypes.LPVOID
+		VirtualAllocEx.argtypes = [
+			wintypes.HANDLE,		# Process Handle
+			wintypes.LPVOID,		# VOID Pointer
+			ctypes.c_size_t,		# dwSize
+			wintypes.DWORD,			# flAllocationType
+			wintypes.DWORD			# flProtect
+		]
+
+		address = VirtualAllocEx(self._proc, None, size, MEM_COMMIT | MEM_RESERVE, protect)
+
+		if not address:
+			raise OSError("VirtualAllocEx failed.")
+		
+		self.entry_point = ctypes.cast(address, ctypes.c_void_p).value
+	
+
+	def write_buffer(self, address: int, mem_buffer: MemoryBuffer) -> None:
+		"""
+		Writes the contents of a MemoryBuffer instance into the remote process at the given address.
+
+		 :param address: Address in remote provess memory where data should be written.
+		 :param mem_buffer: A MemoryBuffer instance containing assembled code/data
+		
+		
+		"""
+		if not self._proc:
+			self.memory_open()
+
+		buffer_len = len(mem_buffer.buffer)
+		buffer_data = bytes(mem_buffer.buffer)
+
+		result = self._kernel32.WriteProcessMemory(self._proc, ctypes.c_void_p(address), ctypes.c_char_p(buffer_data), buffer_len, None)
+
+		if not result:
+			raise OSError(f"WriteProcessMemory failed at 0x{address:X}")
