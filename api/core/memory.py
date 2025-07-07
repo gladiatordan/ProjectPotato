@@ -37,7 +37,7 @@ class ProcessMemory:
 
 	def memory_open(self) -> None:
 		"""opens handle to the instance's given process"""
-		self._proc = self._kernel32.OpenProcess(PROCESS_ALL_ACCESS, False, pid)
+		self._proc = self._kernel32.OpenProcess(PROCESS_ALL_ACCESS, False, self.pid)
 
 	
 	def memory_close(self) -> None:
@@ -64,8 +64,8 @@ class ProcessMemory:
 		if not self._proc:
 			self.memory_open()
 		
-		buf = ctype_type(data)
-		self._kernel32.WriteProcessMemory(self._proc, address, ctypes.byref(buffer), ctypes.sizeof(buf), None)
+		buffer = ctype_type(data)
+		self._kernel32.WriteProcessMemory(self._proc, address, ctypes.byref(buffer), ctypes.sizeof(buffer), None)
 		
 	
 	def memory_read(self, address: int, ctype_type=ctypes.c_uint32) -> int:
