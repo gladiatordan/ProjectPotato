@@ -135,7 +135,7 @@ class ProcessMemory:
 		self._kernel32.SetProcessWorkingSetSize(self._proc, -1, -1)
 
 
-	def set_max_memory(self, mem_size: int = 157_286_400) -> None:
+	def set_max_memory(self, mem_size: int = 157286400) -> None:
 		"""sets working memory set size of current process handle"""
 		if not self._proc:
 			self.memory_open()
