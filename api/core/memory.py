@@ -11,9 +11,10 @@ import struct
 
 
 
-PROCESS_ALL_ACCESS 	= 0x1F0FFF              # process open access rights
-MEM_COMMIT			= 0x00001000			# commit memory
-MEM_RESERVE			= 0x00002000			# reserve memory
+PROCESS_ALL_ACCESS 		= 0x1F0FFF              # process open access rights
+MEM_COMMIT				= 0x00001000			# commit memory
+MEM_RESERVE				= 0x00002000			# reserve memory
+PAGE_EXECUTE_READWRITE  = 0x40
 
 
 
@@ -63,7 +64,10 @@ class MemoryBuffer:
 		 :param data: Data to write as bytes.
 		
 		"""
-		end_address = address + len(data)
+		try:
+			end_address = address + len(data)
+		except Exception as e:
+			raise TypeError(f"{address} -> {data}")
 		if end_address > len(self.buffer):
 			# make buffer bigger if it's too small
 			self.buffer.extend([0] * (end_address - len(self.buffer)))
@@ -97,9 +101,22 @@ class MemoryBuffer:
 		 :param size: Size of the integer in bytes (default is 4 for 32-bit integers).
 
 		"""
-		fmt = {1: "b", 2: "h", 4: "i"}[size]
-		data = struct.pack(fmt, value)
-		self.write(address, data)
+		is_signed = False
+		if value < 0:
+			is_signed = True
+		self.write(address, value.to_bytes(size, byteorder="little", signed=is_signed))
+
+
+	def resolve_label(self, pos: int, address: int, size=4):
+		"""
+		Overrides a symbolic label in the buffer with its resolved address (used only at runtime)
+
+		 :param address: Starting address (offset) in the buffer.
+		 :param value: Address to replace 0xDEADBEEF with
+		 :param size: Size of the integer in bytes (default is 4 for 32-bit addresses).
+
+		"""
+		self.buffer[pos:pos+4] = address.to_bytes(4, byteorder="little")
 
 
 	def resolve_ptr(self, base_address, offsets):
@@ -128,17 +145,17 @@ class ProcessMemory:
 	
 	"""
 	def __init__(self, pid):
-		self._kernel32 = ctypes.WinDLL("kernel32.dll")
+		self._kernel32 = ctypes.WinDLL("kernel32.dll", use_last_error=True)
 		self.pid = pid   			# ProcessID
 		self._proc = None			# Process Handle
 		self.entry_point = None		# Address of entry_point from VirtualAllocX
-	
+
 
 	def memory_open(self) -> None:
 		"""opens handle to the instance's given process"""
 		self._proc = self._kernel32.OpenProcess(PROCESS_ALL_ACCESS, False, self.pid)
 
-	
+
 	def memory_close(self) -> None:
 		"""closes handle to the instance's given process"""
 		if self._proc:
@@ -241,7 +258,7 @@ class ProcessMemory:
 		self._kernel32.SetProcessWorkingSetSizeEx(self._proc, 1, mem_size, 6)
 
 
-	def allocate_memory(self, size: int, protect: int = 0x40) -> int:
+	def allocate_memory(self, size: int, protect: int = PAGE_EXECUTE_READWRITE) -> int:
 		"""
 		
 		Allocates memory in the target process using VirtualAllocEx.
@@ -264,12 +281,42 @@ class ProcessMemory:
 			wintypes.DWORD			# flProtect
 		]
 
-		address = VirtualAllocEx(self._proc, None, size, MEM_COMMIT | MEM_RESERVE, protect)
-
+		address = VirtualAllocEx(self._proc, None, size, MEM_COMMIT, protect)
+		print(f"address for VirtualAllocEx given at -> 0x{address:X}")
 		if not address:
 			raise OSError("VirtualAllocEx failed.")
 		
-		self.entry_point = ctypes.cast(address, ctypes.c_void_p).value
+		entry_point = ctypes.cast(address, ctypes.c_void_p).value
+		print(f"entry point saved as -> 0x{entry_point:X}")
+		return entry_point
+	
+
+	def free_allocated_memory(self, address: int, size: int = 0, free_type: int = 0x8000) -> bool:
+		"""
+		Frees memory in the target process using VirtualFreeEx that was previously allocated via VirtualAllocEx
+
+		 :param address: The base address of the memory block to free.
+		 :param size: The size of the memory block. Use 0 if freezing the entire region
+		 :param free_type: The type of free operation. Default is MEM_RELEASE (0x8000)
+		
+		"""
+		if not self._proc:
+			self.memory_open()
+
+		VirtualFreeEx = self._kernel32.VirtualFreeEx
+		VirtualFreeEx.restype = wintypes.BOOL
+		VirtualFreeEx.argtypes = [
+			wintypes.HANDLE,		# Process Handle
+			wintypes.LPVOID,		# lpStartAddress
+			ctypes.c_size_t,		# dwSize
+			wintypes.DWORD,			# dwFreeType
+		]
+
+		success = VirtualFreeEx(self._proc, ctypes.c_void_p(address), size, free_type)
+
+		if not success:
+			err = ctypes.get_last_error()
+			raise OSError(f"VirtualFreeEx failed at 0x{address:08X}, error code {err}")
 	
 
 	def write_buffer(self, address: int, mem_buffer: MemoryBuffer) -> None:
@@ -290,4 +337,6 @@ class ProcessMemory:
 		result = self._kernel32.WriteProcessMemory(self._proc, ctypes.c_void_p(address), ctypes.c_char_p(buffer_data), buffer_len, None)
 
 		if not result:
+			err = ctypes.get_last_error()
+			print(f"Error received from WriteProcessMemory -> {err}")
 			raise OSError(f"WriteProcessMemory failed at 0x{address:X}")
