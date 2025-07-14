@@ -1,574 +1,417 @@
+#stdlib
 import re
-import logging
+
+#mylib
+from .memory import MemoryBuffer
 
 
 
 class Assembler:
 	"""
-
-	Basic assembler class 
-
+	
+	General Assembler class, encodes x86 asm instructions and adds them to a given MemoryBuffer instance
+	
 	"""
-	def __init__(self, buffer):
+	def __init__(self, buffer: MemoryBuffer):
 		self.buffer = buffer
-		self.opcode_map = {
-			"add": {
-				"eax": "05",
-				"ebx": "81C3",
-				"ecx": "81C1",
-				"edx": "81C2",
-				"esi": "81C6",
-				"edi": "81C7",
-				"esp": "81C4",
-				"ebp": "81C5",
-			},
-			"cmp": {
-				"eax": "3D",
-				"ebx": "81FB",
-				"ecx": "81F9",
-				"edx": "81FA",
-			},
-			"mov": {
-				"eax": "A1", 
-				"ebx": "8B1D", 
-				"ecx": "8B0D", 
-				"edx": "8B15",
-				"DWORD": {
-					"eax": "A1",
-					"ebx": "8B1D",
-					"ecx": "8B0D",
-					"edx": "8B15",
-					"esi": "8B35",
-					"edi": "8B3D",
-				},
-			},
-			"sub": {
-				"eax": "81E8",
-				"ebx": "81EB",
-				"ecx": "81E9",
-				"edx": "81EA",
-			},
-			"xor": {
-				"eax": "31C0",
-				"ecx": "31C9",
-				"edx": "31D2",
-				"ebx": "31DB",
-			},
-			"or": {
-				"eax": "09C0",
-			},
-			"and": {
-				"eax": "21C0",
-			},
-			"test": {
-				"eax": "85C0",
-				"ecx": "85C9",
-				"edx": "85D2",
-				"ebx": "85DB",
-			},
-		}
+		self.unresolved_labels = {}
+
+
+	def _is_immediate(self, operand: str) -> bool:
+		try:
+			int(operand, 0)  # Auto-detects base: 0x... or decimal
+			return True
+		except ValueError:
+			try:
+				int(operand, 16)
+				return True
+			except ValueError:
+				return False
+
+
+	def _parse_immediate(self, value: str) -> int:
+		if value.startswith("0x") or value.startswith("-0x"):
+			return int(value, 16)
+		return int(value, 10 if value.isdigit() or value.startswith("-") else 16)
+
+
+	def _add_unresolved_label(self, label: str, add_to_payload: bool = True) -> None:
+		if label not in self.unresolved_labels:
+			self.unresolved_labels[label] = []
+			print(f"Added new label type to unresolved labels: '{label}'")
+		self.unresolved_labels[label].append(self.buffer.asm_offset)
+		print(f"Added offset entry for label {label} at {self.buffer.asm_offset}")
 		
-		self.add_opcodes = {
-			"eax": "05",
-			"ebx": "83C3",
-			"ecx": "83C1",
-			"edx": "83C2",
-			"edi": "83C7",
-			"esi": "83C6",
-		} # why are these different?
-		self.fixed_opcodes = {
-			"nop": "90",
-			"pushad": "60",
-			"popad": "61",
-			"mov ebx,dword[eax]": "8B18",
-			"test eax,eax": "85C0",
-			"test ebx,ebx": "85DB",
-			"test ecx,ecx": "85C9",
-			"mov dword[eax],0": "C70000000000",
-			"push eax": "50",
-			"push ebx": "53",
-			"push ecx": "51",
-			"push edx": "52",
-			"push ebp": "55",
-			"push esi": "56",
-			"push edi": "57",
-			"jmp ebx": "FFE3",
-			"pop eax": "58",
-			"pop ebx": "5B",
-			"pop edx": "5A",
-			"pop ecx": "59",
-			"pop esi": "5E",
-			"inc eax": "40",
-			"inc ecx": "41",
-			"inc ebx": "43",
-			"dec edx": "4A",
-			"mov edi,edx": "8BFA",
-			"mov ecx,esi": "8BCE",
-			"mov ecx,edi": "8BCF",
-			"mov ecx,esp": "8BCC",
-			"xor eax,eax": "33C0",
-			"xor ecx,ecx": "33C9",
-			"xor edx,edx": "33D2",
-			"xor ebx,ebx": "33DB",
-			"mov edx,eax": "8BD0",
-			"mov edx,ecx": "8BD1",
-			"mov ebp,esp": "8BEC",
-			"sub esp,8": "83EC08",
-			"cmp eax,0": "83F800",
-		}
+		if add_to_payload:
+			self.buffer.write_int(self.buffer.asm_offset, 0xDEADBEEF)
+			# finally, increment asm_offset for newly inserted label
+			self.buffer.asm_offset += 4
 
 
-	def create_pattern(self, pattern):
+	def add_pattern(self, pattern: str) -> None:
 		"""
-		Creates a bytes representation of a hexidecimal pattern string
-		to be added to the buffer.
+		Adds a pattern to the buffer
+
+		Formatted with 12-byte header and padded to 80 bytes total
+
+		 :param pattern: Hexadecimal string pattern (wildcards not supported yet)
 		
-		 :param pattern: The hexadecimal pattern as a string.
 		"""
-		cleaned_pattern = re.sub(r"[^0-9A-Fa-f]", "", pattern) # remove invalid characters
-		return bytes.fromhex(cleaned_pattern)
+		byte_length = len(pattern) // 2
 
+		length_hex_le = bytearray.fromhex(f"{byte_length:08X}")[::-1].hex()
+		header = "00000000" + length_hex_le + "00000000"
 
-	def set_label(self, name):
+		final_pattern = header + pattern
+		final_pattern_b = bytes.fromhex(final_pattern)
+
+		padding_len = 80 - len(final_pattern_b)
+		final_pattern_b += b'\x00' * padding_len
+
+		self.buffer.write(self.buffer.asm_offset, final_pattern_b)
+		self.buffer.asm_offset += len(final_pattern_b)
+		self.buffer.asm_size = max(self.buffer.asm_size, self.buffer.asm_offset)
+
+		print(f"Added scan pattern ({byte_length} bytes), padded to {len(final_pattern_b)} bytes")
+		
+
+	def add_label(self, name: str) -> None:
 		"""
 		Sets a label in the buffer for reference.
 		
-		 :param name: The name of the label.
-		
+		:param name: The name of the label.
+
+		If a size expression is included (e.g. "Label/1024"), it reserves that many bytes.
+		If no size expression is included, reserves 4 bytes for x86 address resolution.
+
 		"""
+		# register label at current offset for later resolution
+		name = name.replace(":", "")
 		pos = self.buffer.asm_offset
 		self.buffer.labels[name] = pos
+		
+		# add the placeholder for label first
+		# DO NOT ADD THE ACTUAL FUCKING LABEL TO THE BUFFER IF IT'S CALLED VIA THIS, YOU DOOFUS
+		# self._add_unresolved_label(name, add_to_payload=False)
 		print(f"Label {name} set at position {pos}")
-
-
-	def add_pattern(self, pattern):
-		"""
-		Adds a hexadecimal pattern to the buffer.
-
-		 :param pattern: The hexadecimal pattern as a string.
-
-		"""
-		cleaned_pattern = re.sub(r"[^0-9A-Fa-f]", "", pattern)      # remove invalid characters
-		pattern_bytes = bytes.fromhex(cleaned_pattern)
-		self.buffer.write(self.buffer.asm_offset, pattern_bytes)
-		self.buffer.asm_offset += len(pattern_bytes)
-		print(f"Added pattern: {cleaned_pattern} (Size: {len(pattern_bytes)} bytes)")
-
-
-	def _encode_arithmetic(self, instruction):
-		"""
-		Encodes arithmetic instructions like ADD and CMP.
-
-		 :param instruction: add or cmp instruction to write to buffer
 		
-		"""
-		match = re.match(r"(add|cmp) ([a-z]+),(.+)", instruction)
-		if match:
-			operation, dest, src = match.groups()
-			if dest in self.opcode_map[operation]:
-				opcode = self.opcode_map[operation][dest]
-				if src.isdigit() or re.match(r"0x[0-9A-Fa-f]+", src): # src is an immediate value
-					imm = int(src, 0) # parse as integer
-					imm_size = 1 if imm <= 0xFF else 4 # determine immediate size
-					imm_bytes = imm.to_bytes(imm_size, byteorder="little", signed=False)
-					# don't call add_instruction here as the offset will be non-standard
-					self.buffer.write(self.buffer.asm_offset, bytes.fromhex(opcode) + imm_bytes)
-					self.buffer.asm_offset += len(opcode) // 2 + len(imm_bytes)
-					print(f"Added {operation.upper()} {dest}, {src} (Immediate)")
-				else:
-					print(f"Unhandled {operation.upper()} with source: {src}")
-			else:
-				print(f"Unsupported destination register for {operation.upper()}: {dest}")
-		else:
-			print(f"Invalid arithmetic instruction: {instruction}")
-
-
-	def _encode_logic(self, instruction):
-		match = re.match(r"(sub|xor|or|and|test) ([a-z]+),([a-z0-9x]+)", instruction)
-		if match:
-			mnemonic, dest, src = match.groups()
-			if dest in self.opcode_map.get(mnemonic, {}):
-				opcode = self.opcode_map[mnemonic][dest]
-				if src == dest:
-					self._add_instruction(bytes.fromhex(opcode))
-					print(f"Added {mnemonic.upper()} {dest},{src}")
-
-
-	def _encode_mov(self, instruction):
-		"""
-		Encodes MOV instructions to be written to the buffer
-
-		 :param instruction: MOV instruction to be encoded
+		# check if size is explicitly included and add size - 4 bytes of padding if so
+		size = 4
+		padding_size = 0
+		if "/" in name:
+			size = int(name.split("/")[-1])
+			print(f"{name} size: {size}")
+			padding_size = 4 if size == 4 else size - 4
 		
-		"""
-		# register to register
-		match = re.match(r"mov ([a-z]+),([a-z]+)", instruction)
-		if match:
-			dest, src = match.groups()
-			reg_map = {
-				"eax": 0b000, "ecx": 0b001, "edx": 0b010, "ebx": 0b011,
-				"esp": 0b100, "ebp": 0b101, "esi": 0b110, "edi": 0b111,
-			}
-
-			if dest in reg_map and src in reg_map:
-				modrm = 0b11000000 | (reg_map[dest] << 3) | reg_map[src]
-				mov_bytes = b'\x89' + bytes([modrm])  # Opcode `89` for `MOV reg_dest, reg_src`
-				self._add_instruction(mov_bytes)
-				print(f"Added MOV {dest},{src} (Register-to-Register)")
-				return
-			
-		# immediate to register
-		match = re.match(r"mov ([a-z]+),([-0-9A-Fa-fx]+)", instruction)
-		if match:
-			dest, imm = match.groups()
-			reg_map = {
-				"eax": 0xB8, "ecx": 0xB9, "edx": 0xBA, "ebx": 0xBB,
-				"esp": 0xBC, "ebp": 0xBD, "esi": 0xBE, "edi": 0xBF,
-			}
-
-			if dest in reg_map:
-				imm_value = int(imm, 0)  # Parse as an integer
-				imm_bytes = imm_value.to_bytes(4, byteorder="little", signed=False)
-				mov_bytes = bytes([reg_map[dest]]) + imm_bytes
-				self._add_instruction(mov_bytes)
-				print(f"Added MOV {dest},{imm} (Immediate to Register)")
-				return
+			# add size - 4 of byte padding to payload
+			to_add = bytearray()
+			to_add += b'\x00' * padding_size
+			print(to_add)
+			self.buffer.write(self.buffer.asm_offset, to_add)
 		
-		# memory to register and vise versa
-		match = re.match(r"mov ([a-z]+),dword\[([a-z]+)\]", instruction)
-		if match:
-			dest, src = match.groups()
-			opcode_map = {
-				"eax": 0b000, "ecx": 0b001, "edx": 0b010, "ebx": 0b011,
-				"esp": 0b100, "ebp": 0b101, "esi": 0b110, "edi": 0b111,
-			}
+			# if / is explicitly included then we need to adjust the asm_offset since we adding padded bytes
+		print(f"ASM offset before: {self.buffer.asm_offset}")
+		self.buffer.asm_offset += padding_size
+		print(f"Added {padding_size} bytes of padding for Label '{name} for total size of {size}")
+		print(f"ASM offset after: {self.buffer.asm_offset}")
 
-			if dest in opcode_map:
-				# Example case: mov eax, dword[esp]
-				modrm = 0b00000100 | (reg_map[dest] << 3) | reg_map[src]
-				mov_bytes = b'\x8B' + bytes([modrm])  # Opcode `8B` for `MOV reg_dest, [reg_src]`
-				self._add_instruction(mov_bytes)
-				print(f"Added MOV {dest},dword[{src}] (Memory to Register)")
-				return
 
-		match = re.match(r"mov dword\[([a-z]+)\],([a-z]+)", instruction)
-		if match:
-			dest, src = match.groups()
-			reg_map = {
-				"eax": 0b000, "ecx": 0b001, "edx": 0b010, "ebx": 0b011,
-				"esp": 0b100, "ebp": 0b101, "esi": 0b110, "edi": 0b111,
-			}
+	def _encode_jump(self, instruction: str) -> None:
+		raise NotImplementedError(f"Jump not implemented yet: {instruction}")
 
-			if dest in reg_map and src in reg_map:
-				modrm = 0b00000100 | (reg_map[src] << 3) | reg_map[dest]
-				mov_bytes = b'\x89' + bytes([modrm])  # Opcode `89` for `MOV [reg_dest], reg_src`
-				self._add_instruction(mov_bytes)
-				print(f"Added MOV dword[{dest}],{src} (Register to Memory)")
-				return
-			
 	
-	def _encode_lea(self, instruction):
-		"""
-		Handles: lea reg, [Label]
-		"""
-		match = re.match(r"lea ([a-z]+),\[(\w+)([+-]0x[0-9A-Fa-f]+)?\]", instruction)
-		if match:
-			reg, label, offset = match.groups()
-			if label not in self.buffer.labels:
-				print(f"[WARN] Unknown label '{label}' in LEA")
-				return
-
-			address = self.buffer.labels[label]
-			if offset:
-				address += int(offset, 16)
-
-			reg_map = {
-				"eax": 0, "ecx": 1, "edx": 2, "ebx": 3,
-				"esp": 4, "ebp": 5, "esi": 6, "edi": 7,
-			}
-
-			if reg not in reg_map:
-				print(f"[ERROR] Unsupported register in LEA: {reg}")
-				return
-
-			modrm = 0x05 | (reg_map[reg] << 3)  # Mod = 00, R/M = 101 (disp32)
-			lea_bytes = bytes([0x8D, modrm]) + address.to_bytes(4, 'little')
-			self._add_instruction(lea_bytes)
-			print(f"Added LEA {reg},[{label}{offset or ''}]")
-	
-
-	def _encode_call_indirect(self, instruction):
-		"""
-		Handles: call [Label]
-		"""
-		match = re.match(r"call \[(\w+)([+-]0x[0-9A-Fa-f]+)?\]", instruction)
-		if match:
-			label, offset = match.groups()
-			if label not in self.buffer.labels:
-				print(f"[WARN] Unknown label '{label}' in CALL")
-				return
-
-			address = self.buffer.labels[label]
-			if offset:
-				address += int(offset, 16)
-
-			# Opcode FF /2 with modrm 0x15 (disp32)
-			call_bytes = bytes([0xFF, 0x15]) + address.to_bytes(4, 'little')
-			self._add_instruction(call_bytes)
-			print(f"Added CALL [dword {label}{offset or ''}]")
+	def _encode_arithmetic(self, instruction: str) -> None:
+		raise NotImplementedError(f"Arithmetic not implemented yet: {instruction}")
 
 
-	def _encode_symbolic_mov(self, instruction):
-		"""
-		Handles symbolic MOV expressions like:
-		- mov eax,[Label]
-		- mov [Label],eax
-		- mov eax,[Label+0x4]
-		- mov [Label+0x4],eax
-		"""
-		 # match: mov reg,[Label] or mov [Label],reg
-		match = re.match(r"mov ([a-z]+),\[(\w+)([+-]0x[0-9A-Fa-f]+)?\]", instruction)
-		if match:
-			dest, label, offset = match.groups()
-			if label not in self.buffer.labels:
-				print(f"[WARN] Unknown label '{label}' in instruction: {instruction}")
-				return
+	def _encode_mov(self, instruction: str) -> None:
+		reg_code = {
+			# 32-bit
+			"eax": 0x0, "ecx": 0x1, "edx": 0x2, "ebx": 0x3,
+			"esp": 0x4, "ebp": 0x5, "esi": 0x6, "edi": 0x7,
 
-			address = self.buffer.labels[label]
-			if offset:
-				address += int(offset, 16)
+			# 16-bit
+			"ax":  0x0, "cx":  0x1, "dx":  0x2, "bx":  0x3,
+			"sp":  0x4, "bp":  0x5, "si":  0x6, "di":  0x7,
 
-			reg_map = {
-				"eax": 0b000, "ecx": 0b001, "edx": 0b010, "ebx": 0b011,
-				"esp": 0b100, "ebp": 0b101, "esi": 0b110, "edi": 0b111,
-			}
+			# 8-bit
+			"al":  0x0, "cl":  0x1, "dl":  0x2, "bl":  0x3,
+			"ah":  0x4, "ch":  0x5, "dh":  0x6, "bh":  0x7,
+		}
 
-			if dest in reg_map:
-				# mov reg, [absolute_address]
-				modrm = bytes([0x8B, 0x05 | (reg_map[dest] << 3)])  # 0x05 = mod 00, r/m 101 (disp32)
-				disp = address.to_bytes(4, 'little')
-				self._add_instruction(modrm + disp)
-				print(f"Added MOV {dest},[{label}{offset or ''}] (Absolute)")
-				return
+		patterns = [
+			("reg_to_imm",				re.compile(r"mov\s+\{(\w+)}\s*,\s*(-?(?:0x[\da-fA-F]+|\d+))\s*$")),
+			("reg_from_sib_label",		re.compile(r"mov\s+\{(\w+)}\s*,\s*dword\[\{(\w+)}\*(\d+)\+<([a-zA-Z_][\w]*)>\]\s*$")),
+			("reg_from_mem_reg_reg",	re.compile(r"mov\s+\{(\w+)}\s*,\s*dword\[\{(\w+)}\+\{(\w+)}\]\s*$")),
+			("reg_from_mem_disp", 		re.compile(r"mov\s+\{(\w+)}\s*,\s*(?:byte|word|dword)?\[\{(\w+)}\+(-?(?:0x[\da-fA-F]+|\d+|[a-fA-F\d]+))\]\s*$")),
+			("reg_from_label_dword",	re.compile(r"mov\s+\{(\w+)}\s*,\s*dword\[<([a-zA-Z_][\w]*)>\]\s*$")),
+			("reg_from_label_plain",	re.compile(r"mov\s+\{(\w+)}\s*,\s*\[<([a-zA-Z_][\w]*)>\]\s*$")),
+			("reg_from_mem_reg",		re.compile(r"mov\s+\{(\w+)}\s*,\s*(?:dword|word|byte)?\[\{(\w+)}\]\s*$")),
+			("reg_to_reg",				re.compile(r"mov\s+\{(\w+)}\s*,\s*\{(\w+)}\s*$")),
+			("reg_to_label",			re.compile(r"mov\s+\{(\w+)}\s*,\s*<([a-zA-Z_][\w]*)>\s*$")),
+			("mem_reg_to_imm",			re.compile(r"mov\s+dword\[\{(\w+)}\]\s*,\s*(-?(?:0x[\da-fA-F]+|\d+))\s*$")),
+			("mem_disp_to_reg", 		re.compile(r"mov\s+dword\[\{(\w+)}\+(-?(?:0x[\da-fA-F]+|\d+|[a-fA-F]+))\]\s*,\s*\{(\w+)}\s*$")),
+			("mem_reg_to_reg",			re.compile(r"mov\s+(?:dword|word|byte)?\[\{(\w+)}\]\s*,\s*\{(\w+)}\s*$")),
+			("label_to_reg",			re.compile(r"mov\s+dword\[<([a-zA-Z_][\w]*)>\]\s*,\s*\{(\w+)}\s*$")),
+		]
 
-		match = re.match(r"mov \[(\w+)([+-]0x[0-9A-Fa-f]+)?\],([a-z]+)", instruction)
-		if match:
-			label, offset, src = match.groups()
-			if label not in self.buffer.labels:
-				print(f"[WARN] Unknown label '{label}' in instruction: {instruction}")
-				return
+		# Determine mov_type
+		mov_type = None
+		match = None
 
-			address = self.buffer.labels[label]
-			if offset:
-				address += int(offset, 16)
+		for name, regex in patterns:
+			m = regex.match(instruction)
+			if not m:
+				continue
 
-			reg_map = {
-				"eax": 0b000, "ecx": 0b001, "edx": 0b010, "ebx": 0b011,
-				"esp": 0b100, "ebp": 0b101, "esi": 0b110, "edi": 0b111,
-			}
+			if name == "reg_to_reg":
+				dst, src = m.groups()
+				if dst not in reg_code or src not in reg_code:
+					continue
+			elif name == "reg_to_label":
+				dst, label = m.groups()
+				if label in reg_code:
+					continue
+			elif name == "mem_reg_to_reg":
+				mem, reg = m.groups()
+				if mem not in reg_code:
+					continue
+			elif name == "mem_reg_to_imm":
+				mem = m.group(1)
+				if mem not in reg_code:
+					continue
 
-			if src in reg_map:
-				# mov [absolute_address], reg
-				modrm = bytes([0x89, 0x05 | (reg_map[src] << 3)])  # 0x05 = mod 00, r/m 101
-				disp = address.to_bytes(4, 'little')
-				self._add_instruction(modrm + disp)
-				print(f"Added MOV [{label}{offset or ''}],{src} (Absolute)")
-				return
+			mov_type = name
+			match = m
+			break
+
+		print(f"Instruction '{instruction}' matched '{mov_type}'")
+		# do the thing based on mov_type encountered
+		match mov_type:
+			case "reg_to_imm":
+				dst, imm = match.groups()
+				reg = reg_code[dst]
+				value = int(imm, 0)
+				self.buffer.write_int(self.buffer.asm_offset, 0xB8 + reg, size=1)
+				self.buffer.write_int(self.buffer.asm_offset, value)
+
+			case "reg_from_sib_label":
+				dst, index, scale, label = match.groups()
+				mod = 0b00
+				rm = 0b100  # SIB follows
+				reg = reg_code[dst]
+				index_code = reg_code[index]
+				scale_val = int(scale)
+				if scale_val not in (1, 2, 4, 8):
+					raise ValueError("Invalid SIB scale")
+				scale_bits = {1: 0b00, 2: 0b01, 4: 0b10, 8: 0b11}[scale_val]
+				self.buffer.write_int(self.buffer.asm_offset, 0x8B, size=1)
+				self.buffer.write_int(self.buffer.asm_offset, (mod << 6) | (reg << 3) | rm, size=1)
+				self.buffer.write_int(self.buffer.asm_offset, (scale_bits << 6) | (index_code << 3) | 0b101, size=1)
+				self._add_unresolved_label(label)
+
+			case "reg_from_mem_reg_reg":
+				dst, base, index = match.groups()
+				mod = 0b00
+				rm = 0b100
+				reg = reg_code[dst]
+				base_code = reg_code[base]
+				index_code = reg_code[index]
+				scale_bits = 0b00  # assume scale of 1
+				self.buffer.write_int(self.buffer.asm_offset, 0x8B, size=1)
+				self.buffer.write_int(self.buffer.asm_offset, (mod << 6) | (reg << 3) | rm, size=1)
+				self.buffer.write_int(self.buffer.asm_offset, (scale_bits << 6) | (index_code << 3) | base_code, size=1)
+
+			case "reg_from_mem_disp":
+				dst, base, offset = match.groups()
+				mod = 0b10
+				reg = reg_code[dst]
+				rm = reg_code[base]
+				try:
+					offset_val = int(offset, 0)
+				except ValueError:
+					offset_val = int(offset, 16)
+				self.buffer.write_int(self.buffer.asm_offset, 0x8B, size=1)
+				self.buffer.write_int(self.buffer.asm_offset, (mod << 6) | (reg << 3) | rm, size=1)
+				self.buffer.write_int(self.buffer.asm_offset, offset_val)
+
+			case "reg_from_label_dword" | "reg_from_label_plain":
+				dst, label = match.groups()
+				reg = reg_code[dst]
+				self.buffer.write_int(self.buffer.asm_offset, 0x8B, size=1)
+				self.buffer.write_int(self.buffer.asm_offset, (0 << 6) | (reg << 3) | 0b101, size=1)
+				self._add_unresolved_label(label)
+
+			case "reg_from_mem_reg":
+				dst, src = m.groups()
+				reg = reg_code[dst]
+				rm = reg_code[src]
+				mod = 0b00
+				size = 4
+				if dst in ("ax", "bx", "cx", "dx", "sp", "bp", "si", "di"):
+					size = 2
+				elif dst in ("al", "ah", "bl", "bh", "cl", "ch", "dl", "dh"):
+					size = 1
+				self.buffer.write_int(self.buffer.asm_offset, 0x8B, size=1)
+				self.buffer.write_int(self.buffer.asm_offset, (mod << 6) | (reg << 3) | rm, size=1)
+				# prefix if needed
+				if size == 2:
+					self.buffer.write_int(self.buffer.asm_offset, 0x66, size=1)
+
+			case "reg_to_reg":
+				dst, src = match.groups()
+				reg_dst = reg_code[dst]
+				reg_src = reg_code[src]
+				mod = 0b11
+				self.buffer.write_int(self.buffer.asm_offset, 0x8B, size=1)
+				self.buffer.write_int(self.buffer.asm_offset, (mod << 6) | (reg_dst << 3) | reg_src, size=1)
+
+			case "reg_to_label":
+				dst, label = match.groups()
+				reg = reg_code[dst]
+				self.buffer.write_int(self.buffer.asm_offset, 0xB8 + reg, size=1)
+				self._add_unresolved_label(label)
+
+			case "mem_reg_to_reg":
+				mem, src = match.groups()
+				reg = reg_code[src]
+				rm = reg_code[mem]
+				mod = 0b00
+				self.buffer.write_int(self.buffer.asm_offset, 0x89, size=1)
+				self.buffer.write_int(self.buffer.asm_offset, (mod << 6) | (reg << 3) | rm, size=1)
+
+			case "mem_reg_to_imm":
+				mem, imm = match.groups()
+				rm = reg_code[mem]
+				imm_val = int(imm, 0)
+				self.buffer.write_int(self.buffer.asm_offset, 0xC7, size=1)
+				self.buffer.write_int(self.buffer.asm_offset, (0b00 << 6) | (0b000 << 3) | rm, size=1)
+				self.buffer.write_int(self.buffer.asm_offset, imm_val)
+
+			case "mem_disp_to_reg":
+				base, offset, src = match.groups()
+				reg = reg_code[src]
+				rm = reg_code[base]
+				try:
+					offset_val = int(offset, 0)
+				except ValueError:
+					offset_val = int(offset, 16)
+				self.buffer.write_int(self.buffer.asm_offset, 0x89, size=1)
+				self.buffer.write_int(self.buffer.asm_offset, (0b10 << 6) | (reg << 3) | rm, size=1)
+				self.buffer.write_int(self.buffer.asm_offset, offset_val)
+
+			case "label_to_reg":
+				label, src = match.groups()
+				reg = reg_code[src]
+				self.buffer.write_int(self.buffer.asm_offset, 0x89, size=1)
+				self.buffer.write_int(self.buffer.asm_offset, (0 << 6) | (reg << 3) | 0b101, size=1)
+				self._add_unresolved_label(label)
+
+			case _:
+				raise NotImplementedError(f"mov not implemented yet: {instruction}")
 
 
-	def _add_jump(self, opcode, target, length):
-		"""
-		Adds a jump instruction (e.g., ljmp, ljne).
+	def _encode_lea(self, instruction: str) -> None:
+		raise NotImplementedError(f"lea not implemented yet: {instruction}")
 
-		 :param opcode: opcode signifying type of jump
-		 :param target: destination for jump
-		 :param length: length of instruction
+
+	def _encode_push(self, instruction: str) -> None:
+		raise NotImplementedError(f"Push not implemented yet: {instruction}")
+
+
+	def _encode_pop(self, instruction: str) -> None:
+		raise NotImplementedError(f"Pop not implemented yet: {instruction}")
+
+
+	def _encode_call(self, instruction: str) -> None:
+		raise NotImplementedError(f"Call not implemented yet: {instruction}")
+
+
+	def _encode_retn(self, instruction: str) -> None:
+		raise NotImplementedError(f"Retn not implemented yet: {instruction}")
+
+
+	def _encode_fld(self, instruction: str) -> None:
+		raise NotImplementedError(f"FloatLoad not implemented yet: {instruction}")
 		
-		"""
-		if target in self.buffer.labels:
-			offset = self.buffer.labels[target] - (self.buffer.asm_offset + length)
-			jump_bytes = bytes.fromhex(opcode) + offset.to_bytes(length - 1, byteorder="little", signed=True)
-			self._add_instruction(jump_bytes)
-			print(f"Added {opcode.upper()} to {target} (Offset: {offset})")
-		else:
-			self.buffer.unresolved_labels.append((self.buffer.asm_offset, f"{opcode} {target}"))
-			placeholder = bytes.fromhex(opcode) + b'\x00' * (length - 1)
-			self._add_instruction(placeholder)
-			print(f"Unresolved jump to {target} (Placeholder added)")
+
+	def _encode_test(self, instruction: str) -> None:
+		raise NotImplementedError(f"Test not implemented yet: {instruction}")
+		
+
+	def _encode_shl(self, instruction: str) -> None:
+		raise NotImplementedError(f"ShiftLeft not implemented yet: {instruction}")
 
 
-	def _add_instruction(self, instruction):
-		"""
-		Internal method for writing instructions to the buffer
-
-		 :param instruction: Instruction in bytes form
-		"""
-		self.buffer.write(self.buffer.asm_offset, instruction)
-		self.buffer.asm_offset += len(instruction)
-
-
-	def add_instruction(self, instruction):
+	def add_instruction(self, instruction: str):
 		"""
 		Parses an assembly-like instruction and writes it to the buffer as machine code.
 
-		 :param instruction: Assembly-like instruction as a string.
+		:param instruction: Assembly-like instruction as a string.
 
+		TODO - clean this fucking mess up
 		"""
 		instruction = instruction.strip()
-
-		# handle labels
-		if instruction.endswith(":"):
-			label_name = instruction[:-1]
-			self.set_label(label_name)
-
-		# handle labels with offsets
-		elif "/" in instruction:
-			# add offset after adding label
-			label_name, offset = instruction.split("/")
-			self.set_label(label_name)
-			self.buffer.asm_offset += int(offset, 16)
-			print(f"Added offset to Label {label_name} of size {offset}")
+		if "->" in instruction:
+			left, hex_string = instruction.split(" -> ", 1)
+			hex_string = hex_string.strip().replace(" ", "")
+			bytes_to_write = bytes.fromhex(hex_string)
+			self.buffer.write(self.buffer.asm_offset, bytes_to_write)
+			self.buffer.asm_offset += len(bytes_to_write)
+			return
 		
-		# handle specific instruction types
-		elif instruction.startswith("nop x"):
-			count = int(instruction[5:])
-			nop_bytes = b'\x90' * count
-			self._add_instruction(nop_bytes)
+		if instruction == "pushad":
+			self.buffer.write(self.buffer.asm_offset, bytes([0x60]))
+			self.buffer.asm_offset += 1
+			return
+		elif instruction == "popad":
+			self.buffer.write(self.buffer.asm_offset, bytes([0x61]))
+			self.buffer.asm_offset += 1
+			return
+		elif re.match(r"^\s*(add|sub|cmp|xor|and|or|inc|dec)\b", instruction, re.IGNORECASE):
+			return self._encode_arithmetic(instruction)
+		elif re.match(r"^\s*(jmp|jz|jnz|je|jne|ja|jb|jl|jg|jo|jno|js|jns|jp|jnp|jc|jnc)\b", instruction, re.IGNORECASE):
+			return self._encode_jump(instruction)
+		elif re.match(r"^\s*mov\b", instruction, re.IGNORECASE):
+			return self._encode_mov(instruction)
+		elif re.match(r"^\s*lea\b", instruction, re.IGNORECASE):
+			return self._encode_lea(instruction)
+		elif re.match(r"^\s*push\b", instruction, re.IGNORECASE):
+			return self._encode_push(instruction)
+		elif re.match(r"^\s*pop\b", instruction, re.IGNORECASE):
+			return self._encode_pop(instruction)
+		elif re.match(r"^\s*call\b", instruction, re.IGNORECASE):
+			return self._encode_call(instruction)
+		elif re.match(r"^\s*(ret|retn)\b", instruction, re.IGNORECASE):
+			return self._encode_retn(instruction)
+		elif re.match(r"^\s*fld\b", instruction, re.IGNORECASE):
+			return self._encode_fld(instruction)
+		elif re.match(r"^\s*test\b", instruction, re.IGNORECASE):
+			return self._encode_test(instruction)
+		elif re.match(r"^\s*shl\b", instruction, re.IGNORECASE):
+			return self._encode_shl(instruction)
 		
-		elif instruction.startswith("ljmp "):
-			# long jump
-			target = instruction[5:]
-			self._add_jump("E9", target, 5)
 
-		elif instruction.startswith("ljne "):
-			# long jump if not equal
-			target = instruction[5:]
-			self._add_jump("0F85", target, 6)
-		
-		elif instruction.startswith("jmp "):
-			# short jump
-			target = instruction[4:]
-			if target in self.buffer.labels:
-				offset = self.buffer.labels[target] - (self.buffer.asm_offset + 2)
-				# non standard encode, do manually
-				self.buffer.write(self.buffer.asm_offset, b'\xEB' + offset.to_bytes(1, byteorder='little', signed=True))
-				self.buffer.asm_offset += 2
-				print(f"Added JMP to {target} (Offset: {offset})")
-			else:
-				self.buffer.unresolved_labels.append((self.buffer.asm_offset, instruction))
-				# non standard encode, do manually
-				self.buffer.write(self.buffer.asm_offset, b'\xEB\x00')
-				self.buffer.asm_offset += 2
-				print(f"Unresolved JMP to {target} (Placeholder added)")
-		
-		elif instruction.startswith("j"):
-			# conditional jumps
-			condition_map = {
-				"jae": "73", "jz": "74", "jnz": "75",
-				"jbe": "76", "ja": "77", "jl": "7C",
-				"jge": "7D", "jle": "7E",
-			}
-			mnemonic, _, target = instruction.partition(" ")
-			opcode = condition_map.get(mnemonic)
-			if opcode:
-				if target in self.labels:
-					offset = self.labels[target] - (self.memory_buffer.asm_code_offset + 2)
-					self.memory_buffer.write(self.memory_buffer.asm_code_offset, bytes.fromhex(opcode) + offset.to_bytes(1, byteorder='little', signed=True))
-					self.memory_buffer.asm_code_offset += 2
-					print(f"Added {mnemonic.upper()} to {target} (Offset: {offset})")
-				else:
-					self.unresolved.append((self.memory_buffer.asm_code_offset, instruction))
-					self.memory_buffer.write(self.memory_buffer.asm_code_offset, bytes.fromhex(opcode) + b'\x00')  # Placeholder
-					self.memory_buffer.asm_code_offset += 2
-					print(f"Unresolved {mnemonic.upper()} to {target} (Placeholder added)")
-		
-		elif instruction.startswith("mov "):
-			# mov instructions
-			self._encode_mov(instruction)
-
-		elif instruction.startswith("add ") or instruction.startswith("cmp "):
-			# add|cmp instructions
-			self._encode_arithmetic(instruction)
-
-		elif instruction.startswith("sub", "xor", "or ", "and ", "test "):
-			self._encode_logic(instruction)
-
-		elif re.match(r"mov [a-z]+,\[", instruction) or re.match(r"mov \[", instruction):
-			self._encode_symbolic_mov(instruction)
-		
-		elif instruction.startswith("lea "):
-			self._encode_lea(instruction)
-
-		elif instruction.startswith("call ["):
-			self._encode_call_indirect(instruction)
-
-		elif instruction in self.fixed_opcodes:
-			# specific opcodes
-			opcode = self.fixed_opcodes[instruction]
-			opcode_bytes = bytes.fromhex(opcode)
-			self._add_instruction(opcode_bytes)
-			print(f"Added fixed opcode: {instruction} -> {opcode}")
-
-		else:
-			print(f"Unhandled instruction: {instruction}")
+		raise NotImplementedError(f"Instruction fell through all handlers: {instruction}")
 
 
-	def assemble(self):
+	def assemble(self, base_address: int) -> None:
 		"""
-		Resolves all unresolved symbolic control flow instructions by patching correct offsets.
-		Should be called after all instructions are added.
+		Resolves all tracked symbolic labels and replaces them with base_address + offset.
 		
+			:param base_address: Address given by VirtualAllocEx as the entry point for buffer to be written
 		"""
-		# TODO - implement this as Func CompleteASM()
-		for pos, instr in self.buffer.unresolved_labels:
-			instr = instr.strip()
-
-			if instr.startswith("ljmp "):
-				target = instr[5:]
-				if target in self.buffer.labels:
-					offset = self.buffer.labels[target] - (pos + 5)
-					patch = b'\xE9' + offset.to_bytes(4, byteorder='little', signed=True)
-					self.buffer.write(pos, patch)
-					print(f"[PATCH] LJMP to {target}: Patched offset {offset} at {pos}")
+		for label, positions in self.unresolved_labels.items():
+			if label not in self.buffer.labels:
+				raise ValueError(f"Unresolved label: {label}")
 			
-			elif instr.startswith("ljne "):
-				target = instr[5:]
-				if target in self.buffer.labels:
-					offset = self.buffer.labels[target] - (pos + 6)
-					patch = b'\x0F\x85' + offset.to_bytes(4, byteorder='little', signed=True)
-					self.buffer.write(pos, patch)
-					print(f"[PATCH] LJNE to {target}: Patched offset {offset} at {pos}")
-
-			elif instr.startswith("jmp "):
-				target = instr[4:]
-				if target in self.buffer.labels:
-					offset = self.buffer.labels[target] - (pos + 2)
-					patch = b'\xEB' + offset.to_bytes(1, byteorder='little', signed=True)
-					self.buffer.write(pos, patch)
-					print(f"[PATCH] JMP to {target}: Patched offset {offset} at {pos}")
-
-			elif instr.startswith("call {") and instr.endswith("}"):
-				target = instr[6:-1]
-				if target in self.buffer.labels:
-					offset = self.buffer.labels[target] - (pos + 5)
-					patch = b'\xE8' + offset.to_bytes(4, byteorder='little', signed=True)
-					self.buffer.write(pos, patch)
-					print(f"[PATCH] CALL to {target}: Patched offset {offset} at {pos}")
-
-			elif re.match(r"j[a-z]{1,2} ", instr):
-				mnemonic, _, target = instr.partition(" ")
-				condition_map = {
-					"jae": "73", "jz": "74", "jnz": "75",
-					"jbe": "76", "ja": "77", "jl": "7C",
-					"jge": "7D", "jle": "7E",
-				}
-				opcode = condition_map.get(mnemonic)
-				if opcode and target in self.buffer.labels:
-					offset = self.buffer.labels[target] - (pos + 2)
-					patch = bytes.fromhex(opcode) + offset.to_bytes(1, byteorder="little", signed=True)
-					self.buffer.write(pos, patch)
-					print(f"[PATCH] {mnemonic.upper()} to {target}: Patched offset {offset} at {pos}")
-		
-		print(f"[ASSEMBLE] All control flow placeholders patched.")
-		print(f"Generated ASM String: {self.buffer.buffer}")
-		print(f"Total ASM Size: {self.buffer.asm_size}")
+			final_addr = base_address + self.buffer.labels[label]
+			for pos in positions:
+				# print(f"Resolved label '{label}' to address 0x{final_addr:X} at offsets {pos}")
+				# print(f"Original Bytes: {self.buffer.buffer[pos:pos+4]}")
+				self.buffer.resolve_label(pos, final_addr)
+				# print(f"New Bytes: {self.buffer.buffer[pos:pos+4]}")
+			# print(f"Resolved label '{label}' to address 0x{final_addr:X} at offsets {positions}")
+		# print(f"[ASSEMBLE] All control flow placeholders patched.")
+		# print(f"Generated ASM String: {self.buffer.buffer.hex()}")
+		# print(f"Total ASM Size: {self.buffer.asm_size}")
