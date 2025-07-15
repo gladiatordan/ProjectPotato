@@ -88,7 +88,7 @@ class ProcessScanner:
 							ctypes.windll.psapi.EnumProcessModules(h_proc, ctypes.byref(h_mod), ctypes.sizeof(h_mod), ctypes.byref(count))
 							ctypes.windll.kernel32.CloseHandle(h_proc)
 
-							base_addr = ctypes.cast(h_mod, ctypes.c_void_p).value - 0x1000
+							base_addr = ctypes.cast(h_mod, ctypes.c_void_p).value + 0x1000
 							base_addr_hex = f"{base_addr:08X}"
 						
 						if not base_addr and base_addr_hex:
@@ -140,7 +140,7 @@ class ProcessScanner:
 			if proc.title == name:
 				print(f"Found proc: {proc}")
 				return proc
-			return None
+		return None
 
 
 
