@@ -12,8 +12,8 @@ import struct
 
 
 PROCESS_ALL_ACCESS 		= 0x1F0FFF              # process open access rights
-MEM_COMMIT				= 0x00001000			# commit memory
-MEM_RESERVE				= 0x00002000			# reserve memory
+MEM_COMMIT				= 0x1000				# commit memory
+MEM_RESERVE				= 0x2000				# reserve memory
 PAGE_EXECUTE_READWRITE  = 0x40
 
 
@@ -36,6 +36,8 @@ class MemoryBuffer:
 		self.asm_size = 0
 		self.asm_offset = 0
 		self.labels = {}
+		self.jumps = {}
+		self.storage_label_offset = 0
 
 
 	def reset_asm_state(self) -> None:
@@ -76,8 +78,12 @@ class MemoryBuffer:
 		# adjust asm_size so it's inline when assembling
 		self.asm_size = max(self.asm_size, len(self.buffer))
 
+	
+	def delete_bytes(self, address: int, size: int) -> None:
+		del self.buffer[address:address + size]
 
-	def read_int(self, address: int, size: int = 4, signed: bool = False) -> int:
+
+	def read_int(self, address: int, size: int = 4, signed: bool = False, big_endian=False) -> int:
 		"""
 		Reads an integer value from the buffer.
 
@@ -88,13 +94,20 @@ class MemoryBuffer:
         :return: Integer value read from the buffer.
 		"""
 		data = self.read(address, size)
-		fmt = {1: "b" if signed else "B", 2: "h" if signed else "H", 4: "i" if signed else "I"}[size]
+		# print(data)
+		fmt = {
+			1: "b" if signed else "B",
+			2: "h" if signed else "H",
+			4: "i" if signed else "I"
+		}[size]
+		prefix = ">" if big_endian else "<"
+		fmt = prefix + fmt
 		return struct.unpack(fmt, data)[0]
 	
 
-	def write_int(self, address, value, size=4):
+	def write_int(self, address, value, size=4, byteorder="little"):
 		"""
-		Writes an integer value to the buffer.
+		Writes an integer value to the buffer. DOES NOT INCREMENT asm_offset!
 
 		 :param address: Starting address (offset) in the buffer.
 		 :param value: Integer value to write.
@@ -104,7 +117,7 @@ class MemoryBuffer:
 		is_signed = False
 		if value < 0:
 			is_signed = True
-		self.write(address, value.to_bytes(size, byteorder="little", signed=is_signed))
+		self.write(address, value.to_bytes(size, byteorder=byteorder, signed=is_signed))
 
 
 	def resolve_label(self, pos: int, address: int, size=4):

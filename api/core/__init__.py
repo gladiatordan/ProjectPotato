@@ -192,7 +192,7 @@ class Core:
 		return value
 
 	
-	def _execute_remote_thread(self, wait: bool = True, timeout_ms: int = 5000) -> None:
+	def _execute_remote_thread(self, wait: bool = True, timeout_ms: int = 2500) -> None:
 		"""
 		
 		Creates a remote thread at the given address in the target process and waits for it to complete execution.
@@ -211,13 +211,13 @@ class Core:
 			ctypes.POINTER(wintypes.DWORD)
 		]
 		scan_proc_addr = self.scan_base + self.scan_buffer.labels["ScanProc"]
-		print(f"ScanProc addr: {scan_proc_addr}")
+		print(f"ScanProc addr: {scan_proc_addr:08X}")
 		thread_id = wintypes.DWORD(0)
 		thread_handle = CreateRemoteThread(
 			self.proc_memory._proc,															# Process handle
 			None,																			# lpThreadAttributes
 			0,																				# dwStackSize
-			ctypes.c_void_p(self.scan_base + self.scan_buffer.labels["ScanProc"]),			# lpStartAddress
+			ctypes.c_void_p(scan_proc_addr),			# lpStartAddress
 			None,																			# lpParameter
 			0,																				# dwCreationFlags
 			ctypes.byref(thread_id)															# lpThreadID
@@ -254,8 +254,12 @@ class Core:
 		asm.add_label("MainModPtr/4")
 		asm.add_label("ScanBasePointer:")
 		asm.add_pattern(function_signatures["ScanBasePointer"])
-		asm.add_label("ScanAgentArray:")
-		asm.add_pattern(function_signatures["ScanAgentArray"])
+		asm.add_label("ScanAgentBase:")
+		asm.add_pattern(function_signatures["ScanAgentBase"])
+		asm.add_label("ScanAgentBasePointer:")
+		asm.add_pattern(function_signatures["ScanAgentBasePointer"])
+		# asm.add_label("ScanAgentArray:")
+		# asm.add_pattern(function_signatures["ScanAgentArray"])
 		asm.add_label("ScanCurrentTarget:")
 		asm.add_pattern(function_signatures["ScanCurrentTarget"])
 		asm.add_label("ScanMyID:")
@@ -276,10 +280,18 @@ class Core:
 		asm.add_pattern(function_signatures["ScanMoveFunction"])
 		asm.add_label("ScanPing:")
 		asm.add_pattern(function_signatures["ScanPing"])
+		asm.add_label("ScanMapID:")
+		asm.add_pattern(function_signatures["ScanMapID"])
+		asm.add_label("ScanMapLoading:")
+		asm.add_pattern(function_signatures["ScanMapLoading"])
 		asm.add_label("ScanLoggedIn:")
 		asm.add_pattern(function_signatures["ScanLoggedIn"])
 		asm.add_label("ScanRegion:")
 		asm.add_pattern(function_signatures["ScanRegion"])
+		asm.add_label("ScanMapInfo:")
+		asm.add_pattern(function_signatures["ScanMapInfo"])
+		asm.add_label("ScanLanguage:")
+		asm.add_pattern(function_signatures["ScanLanguage"])
 		asm.add_label("ScanUseSkillFunction:")
 		asm.add_pattern(function_signatures["ScanUseSkillFunction"])
 		asm.add_label("ScanPacketSendFunction:")
@@ -314,6 +326,8 @@ class Core:
 		asm.add_pattern(function_signatures["ScanUseHeroSkillFunction"])
 		asm.add_label("ScanTransactionFunction:")
 		asm.add_pattern(function_signatures["ScanTransactionFunction"])
+		asm.add_label("ScanBuyItemFunction:")
+		asm.add_pattern(function_signatures["ScanBuyItemFunction"])
 		asm.add_label("ScanBuyItemBase:")
 		asm.add_pattern(function_signatures["ScanBuyItemBase"])
 		asm.add_label("ScanRequestQuoteFunction:")
@@ -322,6 +336,8 @@ class Core:
 		asm.add_pattern(function_signatures["ScanTraderFunction"])
 		asm.add_label("ScanTraderHook:")
 		asm.add_pattern(function_signatures["ScanTraderHook"])
+		asm.add_label("ScanSleep:")
+		asm.add_pattern(function_signatures["ScanSleep"])
 		asm.add_label("ScanSalvageFunction:")
 		asm.add_pattern(function_signatures["ScanSalvageFunction"])
 		asm.add_label("ScanSalvageGlobal:")
@@ -338,22 +354,20 @@ class Core:
 		asm.add_pattern(function_signatures["ScanZoomStill"])
 		asm.add_label("ScanZoomMoving:")
 		asm.add_pattern(function_signatures["ScanZoomMoving"])
+		asm.add_label("ScanBuildNumber:")
+		asm.add_pattern(function_signatures["ScanBuildNumber"])
 		asm.add_label("ScanChangeStatusFunction:")
 		asm.add_pattern(function_signatures["ScanChangeStatusFunction"])
 		asm.add_label("ScanCharslots:")
 		asm.add_pattern(function_signatures["ScanCharSlots"])
+		asm.add_label("ScanReadChatFunction:")
+		asm.add_pattern(function_signatures["ScanReadChatFunction"])
 		asm.add_label("ScanDialogLog:")
 		asm.add_pattern(function_signatures["ScanDialogLog"])
 		asm.add_label("ScanTradeHack:")
 		asm.add_pattern(function_signatures["ScanTradeHack"])
-		asm.add_label("ScanInstanceInfo:")
-		asm.add_pattern(function_signatures["ScanInstanceInfo"])
-		asm.add_label("ScanAreaInfo:")
-		asm.add_pattern(function_signatures["ScanAreaInfo"])
-		asm.add_label("ScanAttributeInfo:")
-		asm.add_pattern(function_signatures["ScanAttributeInfo"])
-		asm.add_label("ScanWorldConst:")
-		asm.add_pattern(function_signatures["ScanWorldConst"])
+		asm.add_label("ScanClickCoords:")
+		asm.add_pattern(function_signatures["ScanClickCoords"])
 
 		# Scan Process function - scans GW for function patterns and adds resulting addresses to addresses for later retrieval
 		asm.add_label("ScanProc:")
@@ -370,7 +384,7 @@ class Core:
 
 		# Scan Inner Loop function
 		asm.add_label("ScanInnerLoop:")
-		asm.add_instruction("mov {ebx},dword[{ebx}]")
+		asm.add_instruction("mov {ebx},dword[{edx}]")
 		asm.add_instruction("cmp {ebx},-1")
 		asm.add_instruction("jnz [<ScanContinue>]")
 		asm.add_instruction("add {edx},50")
@@ -382,12 +396,12 @@ class Core:
 
 		# Scan Continue function
 		asm.add_label("ScanContinue:")
-		asm.add_instruction("lea {edi},dword[{ebx}+{ebx}]")
+		asm.add_instruction("lea {edi},dword[{edx}+{ebx}]")
 		asm.add_instruction("add {edi},C")
 		asm.add_instruction("mov {ah},byte[{edi}]")
 		asm.add_instruction("cmp {al},{ah}")
 		asm.add_instruction("jz [<ScanMatched>]")
-		asm.add_instruction("mov dword[{ebx}],0")
+		asm.add_instruction("mov dword[{edx}],0")
 		asm.add_instruction("add {edx},50")
 		asm.add_instruction("cmp {edx},{esi}")
 		asm.add_instruction("jnz [<ScanInnerLoop>]")
@@ -408,16 +422,6 @@ class Core:
 		asm.add_instruction("jnz [<ScanLoop>]")
 		asm.add_instruction("jmp [<ScanExit>]")
 
-		asm.add_instruction("cmp {ah},00")
-		asm.add_instruction("jz [<ScanMatched>]")
-		asm.add_instruction("mov dword[{edx}],0")
-		asm.add_instruction("add {edx},50")
-		asm.add_instruction("cmp {edx},{esi}")
-		asm.add_instruction("jnz [<ScanInnerLoop>]")
-		asm.add_instruction(f"cmp {{ecx}},{scan_base_addr_cmp}")
-		asm.add_instruction("jnz [<ScanLoop>]")
-		asm.add_instruction("jmp [<ScanExit>]")
-
 		# ScanFound function
 		asm.add_label("ScanFound")
 		asm.add_instruction("lea {edi},dword[{edx}+8]")
@@ -427,6 +431,7 @@ class Core:
 		asm.add_instruction("cmp {edx},{esi}")
 		asm.add_instruction("jnz [<ScanInnerLoop>]")
 		asm.add_instruction(f"cmp {{ecx}},{scan_base_addr_cmp}")
+		asm.add_instruction("jnz [<ScanLoop>]")
 
 		# ScanExit function
 		asm.add_label("ScanExit")
@@ -450,7 +455,7 @@ class Core:
 		asm.add_label("TraderCostID/4")
 		asm.add_label("TraderCostValue/4")
 		asm.add_label("DisableRendering/4")
-		asm.add_label(f"QueueBase/{256 * self.get_value("Queu{eSi}ze")}")
+		asm.add_label(f"QueueBase/{256 * self.get_value("QueueSize")}")
 		asm.add_label(f"TargetLogBase/{4 * self.get_value("TargetLogSize")}")
 		asm.add_label(f"SkillLogBase/{16 * self.get_value("SkillLogSize")}")
 		asm.add_label(f"StringLogBase/{256 * self.get_value("StringLogSize")}")
@@ -461,25 +466,25 @@ class Core:
 
 		# CreateMain
 		asm.add_label("MainProc:")
-		asm.add_instruction("nop x")
+		# asm.add_instruction("nop x")
 		asm.add_instruction("pushad")
 		asm.add_instruction("mov {eax},dword[<EnsureEnglish>]")
 		asm.add_instruction("test {eax},{eax}")
-		asm.add_instruction("jz MainMain")
+		asm.add_instruction("jz [<MainMain>]")
 		asm.add_instruction("mov {ecx},dword[<BasePointer>]")
 		asm.add_instruction("mov {ecx},dword[{ecx}+18]")
 		asm.add_instruction("mov {ecx},dword[{ecx}+18]")
 		asm.add_instruction("mov {ecx},dword[{ecx}+194]")
 		asm.add_instruction("mov {al},byte[{ecx}+4f]")
 		asm.add_instruction("cmp {al},f")
-		asm.add_instruction("ja MainMain")
+		asm.add_instruction("ja [<MainMain>]")
 		asm.add_instruction("mov {ecx},dword[{ecx}+4c]")
 		asm.add_instruction("mov {al},byte[{ecx}+3f]")
 		asm.add_instruction("cmp {al},f")
-		asm.add_instruction("ja MainMain")
+		asm.add_instruction("ja [<MainMain>]")
 		asm.add_instruction("mov {eax},dword[{ecx}+40]")
 		asm.add_instruction("test {eax},{eax}")
-		asm.add_instruction("jz MainMain")
+		asm.add_instruction("jz [<MainMain>]")
 
 		asm.add_label("MainMain:")
 		asm.add_instruction("mov {eax},dword[<QueueCounter>]")
@@ -496,7 +501,7 @@ class Core:
 		asm.add_label("CommandReturn:")
 		asm.add_instruction("pop {eax}")
 		asm.add_instruction("inc {eax}")
-		asm.add_instruction("cmp {eax},Queu{eSi}ze")
+		asm.add_instruction("cmp {eax},[<QueueSize>]")
 		asm.add_instruction("jnz [<MainSkipReset>]")
 		asm.add_instruction("xor {eax},{eax}")
 
@@ -506,7 +511,7 @@ class Core:
 		asm.add_label("MainExit:")
 		asm.add_instruction("popad")
 		asm.add_instruction("mov {ebp},{esp}")
-		asm.add_instruction("flt st(0),dword[{ebp}+8]")
+		asm.add_instruction("fld st(0),dword[{ebp}+8]")
 		asm.add_instruction("ljmp [<MainReturn>]")
 
 		# TraderHook
@@ -525,7 +530,7 @@ class Core:
 		asm.add_instruction("mov {eax},dword[<TraderQuoteID>]")
 		asm.add_instruction("inc {eax}")
 		asm.add_instruction("cmp {eax},200")
-		asm.add_instruction("jnz TraderSkipReset")
+		asm.add_instruction("jnz [<TraderSkipReset>]")
 		asm.add_instruction("xor {eax},{eax}")
 
 		asm.add_label("TraderSkipReset:")
@@ -540,9 +545,9 @@ class Core:
 		asm.add_instruction("test {eax},{eax}")
 		asm.add_instruction("jz [<StringLogExit>]")
 		asm.add_instruction("cmp {eax},1")
-		asm.add_instruction("jnz StringLogFilter2")
+		asm.add_instruction("jnz [<StringLogFilter2>]")
 		asm.add_instruction("mov {eax},dword[{ebp}+37c]")
-		asm.add_instruction("jmp StringLogRangeCheck")
+		asm.add_instruction("jmp [<StringLogRangeCheck>]")
 
 		asm.add_label("StringLogFilter2:")
 		asm.add_instruction("cmp {eax},2")
@@ -560,14 +565,14 @@ class Core:
 		asm.add_instruction("xor {ebx},{ebx}")
 
 		asm.add_label("StringLogCopyLoop:")
-		asm.add_instruction("mov dx,word[{ecx}]")
-		asm.add_instruction("mov word[{eax}],dx")
+		asm.add_instruction("mov {dx},word[{ecx}]")
+		asm.add_instruction("mov word[{eax}],{dx}")
 		asm.add_instruction("add {ecx},2")
 		asm.add_instruction("add {eax},2")
 		asm.add_instruction("inc {ebx}")
 		asm.add_instruction("cmp {ebx},80")
 		asm.add_instruction("jz [<StringLogExit>]")
-		asm.add_instruction("test dx,dx")
+		asm.add_instruction("test {dx},{dx}")
 		asm.add_instruction("jnz [<StringLogCopyLoop>]")
 
 		asm.add_label("StringLogExit:")
@@ -588,14 +593,14 @@ class Core:
 		asm.add_instruction("push {ecx}")
 		asm.add_instruction("mov {ebx},dword[{eax}+8]")
 		asm.add_instruction("push {ebx}")
-		asm.add_instruction("mov edx,dword[{eax}+4]")
-		asm.add_instruction("dec edx")
-		asm.add_instruction("push edx")
-		asm.add_instruction("mov {eax},dword[MyID]")
+		asm.add_instruction("mov {edx},dword[{eax}+4]")
+		asm.add_instruction("dec {edx}")
+		asm.add_instruction("push {edx}")
+		asm.add_instruction("mov {eax},dword[<MyID>]")
 		asm.add_instruction("push {eax}")
-		asm.add_instruction("call UseSkillFunction")
+		asm.add_instruction("call [<UseSkillFunction>]")
 		asm.add_instruction("pop {eax}")
-		asm.add_instruction("pop edx")
+		asm.add_instruction("pop {edx}")
 		asm.add_instruction("pop {ebx}")
 		asm.add_instruction("pop {ecx}")
 		asm.add_instruction("ljmp [<CommandReturn>]")
@@ -608,26 +613,26 @@ class Core:
 		asm.add_instruction("ljmp [<CommandReturn>]")
 
 		asm.add_label("CommandChangeTarget:")
-		asm.add_instruction("xor edx,edx")
-		asm.add_instruction("push edx")
+		asm.add_instruction("xor {edx},{edx}")
+		asm.add_instruction("push {edx}")
 		asm.add_instruction("mov {eax},dword[{eax}+4]")
 		asm.add_instruction("push {eax}")
 		asm.add_instruction("call [<ChangeTargetFunction>]")
 		asm.add_instruction("pop {eax}")
-		asm.add_instruction("pop edx")
+		asm.add_instruction("pop {edx}")
 		asm.add_instruction("ljmp [<CommandReturn>]")
 
 		asm.add_label("CommandPacketSend:")
-		asm.add_instruction("lea edx,dword[{eax}+8]")
-		asm.add_instruction("push edx")
+		asm.add_instruction("lea {edx},dword[{eax}+8]")
+		asm.add_instruction("push {edx}")
 		asm.add_instruction("mov {ebx},dword[{eax}+4]")
 		asm.add_instruction("push {ebx}")
-		asm.add_instruction("mov {eax},dword[PacketLocation]")
+		asm.add_instruction("mov {eax},dword[<PacketLocation>]")
 		asm.add_instruction("push {eax}")
 		asm.add_instruction("call [<PacketSendFunction>]")
 		asm.add_instruction("pop {eax}")
 		asm.add_instruction("pop {ebx}")
-		asm.add_instruction("pop edx")
+		asm.add_instruction("pop {edx}")
 		asm.add_instruction("ljmp [<CommandReturn>]")
 
 		asm.add_label("CommandChangeStatus:")
@@ -637,7 +642,7 @@ class Core:
 		asm.add_instruction("pop {eax}")
 		asm.add_instruction("ljmp [<CommandReturn>]")
 
-		asm.add_instruction("CommandWriteChat:")
+		asm.add_label("CommandWriteChat:")
 		asm.add_instruction("push 0")
 		asm.add_instruction("add {eax},4")
 		asm.add_instruction("push {eax}")
@@ -668,9 +673,9 @@ class Core:
 		asm.add_instruction("mov {ecx},{eax}")
 		asm.add_instruction("add {ecx},4")
 		asm.add_instruction("push {ecx}")
-		asm.add_instruction("mov edx,{eax}")
-		asm.add_instruction("add edx,8")
-		asm.add_instruction("push edx")
+		asm.add_instruction("mov {edx},{eax}")
+		asm.add_instruction("add {edx},8")
+		asm.add_instruction("push {edx}")
 		asm.add_instruction("push 1")
 		asm.add_instruction("push 0")
 		asm.add_instruction("push 0")
@@ -693,7 +698,7 @@ class Core:
 		asm.add_instruction("push 0")
 		asm.add_instruction("mov {ecx},dword[<TradeID>]")
 		asm.add_instruction("mov {ecx},dword[{ecx}]")
-		asm.add_instruction("mov edx,dword[{eax}+4]")
+		asm.add_instruction("mov {edx},dword[{eax}+4]")
 		asm.add_instruction("lea {ecx},dword[{ebx}+{ecx}*4]")
 		asm.add_instruction("push {ecx}")
 		asm.add_instruction("push 1")
@@ -704,7 +709,7 @@ class Core:
 		asm.add_instruction("mov dword[<TraderCostID>],0")
 		asm.add_instruction("ljmp [<CommandReturn>]")
 
-		asm.add_instruction("CommandAction:")
+		asm.add_label("CommandAction:")
 		asm.add_instruction("mov {ecx},dword[<ActionBase>]")
 		asm.add_instruction("mov {ecx},dword[{ecx}+c]")
 		asm.add_instruction("add {ecx},A0")
@@ -712,7 +717,7 @@ class Core:
 		asm.add_instruction("add {eax},4")
 		asm.add_instruction("push {eax}")
 		asm.add_instruction("push dword[{eax}+4]")
-		asm.add_instruction("mov edx,0")
+		asm.add_instruction("mov {edx},0")
 		asm.add_instruction("call [<ActionFunction>]")
 		asm.add_instruction("ljmp [<CommandReturn>]")
 
@@ -728,8 +733,8 @@ class Core:
 		asm.add_instruction("ljmp [<CommandReturn>]")
 
 		asm.add_label("CommandSendChat:")
-		asm.add_instruction("lea edx,dword[{eax}+4]")
-		asm.add_instruction("push edx")
+		asm.add_instruction("lea {edx},dword[{eax}+4]")
+		asm.add_instruction("push {edx}")
 		asm.add_instruction("mov {ebx},11c")
 		asm.add_instruction("push {ebx}")
 		asm.add_instruction("mov {eax},dword[<PacketLocation>]")
@@ -737,7 +742,7 @@ class Core:
 		asm.add_instruction("call [<PacketSendFunction>]")
 		asm.add_instruction("pop {eax}")
 		asm.add_instruction("pop {ebx}")
-		asm.add_instruction("pop edx")
+		asm.add_instruction("pop {edx}")
 		asm.add_instruction("ljmp [<CommandReturn>]")
 
 		asm.add_label("CommandRequestQuote:")
@@ -754,7 +759,7 @@ class Core:
 		asm.add_instruction("push 0")
 		asm.add_instruction("push C")
 		asm.add_instruction("mov {ecx},0")
-		asm.add_instruction("mov edx,2")
+		asm.add_instruction("mov {edx},2")
 		asm.add_instruction("call [<RequestQuoteFunction>]")
 		asm.add_instruction("add {esp},20")
 		asm.add_instruction("ljmp [<CommandReturn>]")
@@ -771,7 +776,7 @@ class Core:
 		asm.add_instruction("push 0")
 		asm.add_instruction("push 0")
 		asm.add_instruction("push D")
-		asm.add_instruction("xor edx,edx")
+		asm.add_instruction("xor {edx},{edx}")
 		asm.add_instruction("call [<RequestQuoteFunction>]")
 		asm.add_instruction("add {esp},20")
 		asm.add_instruction("ljmp [<CommandReturn>]")
@@ -784,8 +789,8 @@ class Core:
 		asm.add_instruction("push 0")
 		asm.add_instruction("push 0")
 		asm.add_instruction("push 0")
-		asm.add_instruction("mov edx,dword[<TraderCostValue>]")
-		asm.add_instruction("push edx")
+		asm.add_instruction("mov {edx},dword[<TraderCostValue>]")
+		asm.add_instruction("push {edx}")
 		asm.add_instruction("push C")
 		asm.add_instruction("mov {ecx},C")
 		asm.add_instruction("call [<TraderFunction>]")
@@ -805,7 +810,7 @@ class Core:
 		asm.add_instruction("push 0")
 		asm.add_instruction("push D")
 		asm.add_instruction("mov {ecx},d")
-		asm.add_instruction("xor edx,edx")
+		asm.add_instruction("xor {edx},{edx}")
 		asm.add_instruction("call [<TransactionFunction>]")
 		asm.add_instruction("add {esp},24")
 		asm.add_instruction("mov dword[<TraderCostID>],0")
@@ -835,7 +840,7 @@ class Core:
 		asm.add_instruction("pop {eax}")
 		asm.add_instruction("ljmp [<CommandReturn>]")
 
-		asm.add_instruction("CommandCraftItemEx2:")
+		asm.add_label("CommandCraftItemEx2:")
 		asm.add_instruction("add {eax},4")
 		asm.add_instruction("push {eax}")
 		asm.add_instruction("add {eax},4")
@@ -845,7 +850,7 @@ class Core:
 		asm.add_instruction("push 0")
 		asm.add_instruction("mov {ecx},dword[<TradeID>]")
 		asm.add_instruction("mov {ecx},dword[{ecx}]")
-		asm.add_instruction("mov edx,dword[{eax}+8]")
+		asm.add_instruction("mov {edx},dword[{eax}+8]")
 		asm.add_instruction("lea {ecx},dword[{ebx}+{ecx}*4]")
 		asm.add_instruction("mov {ecx},dword[{ecx}]")
 		asm.add_instruction("mov [{eax}+8],{ecx}")
@@ -868,42 +873,40 @@ class Core:
 		asm.add_instruction("ljmp [<CommandReturn>]")
 
 		asm.add_label("CommandIncreaseAttribute:")
-		asm.add_instruction("mov edx,dword[{eax}+4]")
-		asm.add_instruction("push edx")
+		asm.add_instruction("mov {edx},dword[{eax}+4]")
+		asm.add_instruction("push {edx}")
 		asm.add_instruction("mov {ecx},dword[{eax}+8]")
 		asm.add_instruction("push {ecx}")
 		asm.add_instruction("call [<IncreaseAttributeFunction>]")
 		asm.add_instruction("pop {ecx}")
-		asm.add_instruction("pop edx")
+		asm.add_instruction("pop {edx}")
 		asm.add_instruction("ljmp [<CommandReturn>]")
 
 		asm.add_label("CommandDecreaseAttribute:")
-		asm.add_instruction("mov edx,dword[{eax}+4]")
-		asm.add_instruction("push edx")
+		asm.add_instruction("mov {edx},dword[{eax}+4]")
+		asm.add_instruction("push {edx}")
 		asm.add_instruction("mov {ecx},dword[{eax}+8]")
 		asm.add_instruction("push {ecx}")
 		asm.add_instruction("call [<DecreaseAttributeFunction>]")
 		asm.add_instruction("pop {ecx}")
-		asm.add_instruction("pop edx")
+		asm.add_instruction("pop {edx}")
 		asm.add_instruction("ljmp [<CommandReturn>]")
 
 		asm.add_label("CommandMakeAgentArray:")
 		asm.add_instruction("mov {eax},dword[{eax}+4]")
 		asm.add_instruction("xor {ebx},{ebx}")
-		asm.add_instruction("xor edx,edx")
+		asm.add_instruction("xor {edx},{edx}")
 		asm.add_instruction("mov {edi},[<AgentCopyBase>]")
 
 		asm.add_label("AgentCopyLoopStart:")
 		asm.add_instruction("inc {ebx}")
 		asm.add_instruction("cmp {ebx},dword[<MaxAgents>]")
 		asm.add_instruction("jge [<AgentCopyLoopExit>]")
-
 		asm.add_instruction("mov {esi},dword[<AgentBase>]")
 		asm.add_instruction("lea {esi},dword[{esi}+{ebx}*4]")
 		asm.add_instruction("mov {esi},dword[{esi}]")
 		asm.add_instruction("test {esi},{esi}")
 		asm.add_instruction("jz [<AgentCopyLoopStart>]")
-
 		asm.add_instruction("cmp {eax},0")
 		asm.add_instruction("jz [<CopyAgent>]")
 		asm.add_instruction("cmp {eax},dword[{esi}+9C]")
@@ -913,15 +916,15 @@ class Core:
 		asm.add_instruction("mov {ecx},1C0")
 		asm.add_instruction("clc")
 		asm.add_instruction("repe movsb")
-		asm.add_instruction("inc edx")
+		asm.add_instruction("inc {edx}")
 		asm.add_instruction("jmp [<AgentCopyLoopStart>]")
 		asm.add_label("AgentCopyLoopExit:")
-		asm.add_instruction("mov dword[<AgentCopyCount>],edx")
+		asm.add_instruction("mov dword[<AgentCopyCount>],{edx}")
 		asm.add_instruction("ljmp [<CommandReturn>]")
 
 		asm.add_label("CommandSendChatPartySearch:")
-		asm.add_instruction("lea edx,dword[{eax}+4]")
-		asm.add_instruction("push edx")
+		asm.add_instruction("lea {edx},dword[{eax}+4]")
+		asm.add_instruction("push {edx}")
 		asm.add_instruction("mov {ebx},4C")
 		asm.add_instruction("push {ebx}")
 		asm.add_instruction("mov {eax},dword[<PacketLocation>]")
@@ -929,10 +932,10 @@ class Core:
 		asm.add_instruction("call [<PacketSendFunction>]")
 		asm.add_instruction("pop {eax}")
 		asm.add_instruction("pop {ebx}")
-		asm.add_instruction("pop edx")
+		asm.add_instruction("pop {edx}")
 		asm.add_instruction("ljmp [<CommandReturn>]")
 
-		# Creat{eDi}alogHook
+		# CreateDialogHook
 		asm.add_label("DialogLogProc:")
 		asm.add_instruction("push {ecx}")
 		asm.add_instruction("mov {ecx},{esp}")
@@ -982,7 +985,7 @@ class Core:
 
 	def _save_references(self):
 		self.queue_counter = self.proc_memory.memory_read(self.saved_values["QueueCounter"])
-		self.queue_size = self.saved_values["Queu{eSi}ze"]
+		self.queue_size = self.saved_values["QueueSize"]
 		self.queue_base = self.saved_values["QueueBase"]
 		self.target_log_base = self.saved_values["TargetLogBase"]
 		self.string_log_base = self.saved_values["StringLogBase"]
@@ -1011,38 +1014,41 @@ class Core:
 		self.proc_memory.memory_open()
 
 		# check if scanner has already been injected, do not inject again if already present
-		scan_ptr_addr = proc.base_address + ADDRESS_SCAN_PTR_OFFSET
-		scan_ptr_existing = self.proc_memory.memory_read(scan_ptr_addr)
+		self.mem_base = proc.base_address + ADDRESS_SCAN_PTR_OFFSET
+		scan_ptr_existing = self.proc_memory.memory_read(self.mem_base)
 		
 		if scan_ptr_existing == 0:
 			self.scan_buffer = MemoryBuffer()
 			self._build_scan_payload()
-			remote_addr = self.proc_memory.allocate_memory(self.scan_buffer.asm_offset)
-			self.scan_base = remote_addr
+			remote_addr = self.proc_memory.allocate_memory(self.scan_buffer.asm_offset + self.scan_buffer.storage_label_offset)
+			self.scan_base = remote_addr + self.scan_buffer.storage_label_offset
 			print(f"ScanBase -> 0x{self.scan_base:08X}")
 			self._assemble_payload(self.scan_base)
-			print("Payload at ScanProc:")
-			print(self.scan_buffer.buffer[self.scan_buffer.labels["ScanProc"]:].hex())
+			print("Payload:")
+			print(self.scan_buffer.buffer.hex())
 			self.proc_memory.write_buffer(self.scan_base, self.scan_buffer)
-			self.proc_memory.memory_write(scan_ptr_addr, self.scan_base)
-			print(f"Injected Scan Payload at 0x{remote_addr:08X}")
+			self.proc_memory.memory_write(self.mem_base, self.scan_base)
+			print(f"Injected Scan Payload at 0x{self.scan_base:08X}")
+			self.scanner_injected = True
 
 		else:
 			print(f"Scanner already injected at 0x{scan_ptr_existing:08X}")
 
-		self.scanner_injected = True
+		
 
-		scan_ptr_exists_after_inject = self.proc_memory.memory_read(scan_ptr_addr)
-		print(f"{scan_ptr_exists_after_inject:08X}")
+		scan_ptr_exists_after_inject = self.proc_memory.memory_read(self.mem_base)
+		if scan_ptr_exists_after_inject and not self.scanner_injected:
+			self.scan_base = scan_ptr_exists_after_inject
+		print(f"Found ScanPointerBase at 0x{scan_ptr_exists_after_inject:08X}")
 		
 		# execute remote thread for Scanner
-		print(f"PROC BASE ADDRESS: {self.proc.base_address:08X}")
+		# print(f"PROC BASE ADDRESS: {self.proc.base_address:08X}")
 		self._execute_remote_thread()
 
 		# after remote thread ends free up memory
 		self.proc_memory.free_allocated_memory(self.scan_base)
 		print("Memory freed.")
-		self.scanner_injected = False
+		# self.scanner_injected = False
 
 		# # read in scanned values from scanner payload
 		# self._read_scan_values()
@@ -1056,9 +1062,9 @@ class Core:
 		# self.set_value("CallbackEvent", SIZE_CALLBACK_EVENT)
 
 		# # create asm payload to add function detours with our custom logic
-		# self._create_modify_buffer()
 		
-		# # check if modify payload has already been injected, do not inject again if already present
+		
+		# check if modify payload has already been injected, do not inject again if already present
 		# modify_ptr_addr = ADDRESS_BASE_MODIFY_MEMORY
 		# modify_ptr_existing = self.proc_memory.memory_read(modify_ptr_addr)
 		
@@ -1069,6 +1075,8 @@ class Core:
 		# 	self.modify_base = modify_remote_addr
 		# 	print(f"ModifyBase -> {self.modify_base}")
 		# 	self._assemble_payload(self.modify_base)
+		# 	print("Payload at MainProc:")
+		# 	print(self.modify_buffer.buffer[self.modify_buffer.labels["MainProc"]:].hex())
 		# 	self.proc_memory.write_buffer(modify_remote_addr, self.modify_buffer)
 		# 	self.proc_memory.memory_write(modify_ptr_addr, modify_remote_addr)
 		# 	print(f"Injected Modify Payload at 0x{self.modify_base:08X}")

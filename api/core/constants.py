@@ -84,8 +84,11 @@ SIZE_CALLBACK_EVENT 	= 0x501
 function_signatures = {
 	"ScanBasePointer"              : "506A0F6A00FF35",
 	"ScanAgentBase"                : "FF501083C6043BF775E2",
+	"ScanAgentBasePointer"		   : "FF501083C6043BF775E28B35",
 	"ScanAgentArray"               : "8B0C9085C97419",
+	"ScanBuildNumber"			   : "558BEC83EC4053568BD9",
 	"ScanCurrentTarget"            : "83C4085F8BE55DC3CCCCCCCCCCCCCCCCCCCCCC55",
+	"ScanMapID"					   : "558BEC8B450885C074078B",
 	"ScanMyId"                     : "83EC08568BF13B15",
 	"ScanEngine"                   : "568B3085F67478EB038D4900D9460C",
 	"ScanRenderFunc"               : "F6C401741C68B1010000BA",

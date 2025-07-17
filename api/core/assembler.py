@@ -15,7 +15,8 @@ class Assembler:
 	def __init__(self, buffer: MemoryBuffer):
 		self.buffer = buffer
 		self.unresolved_labels = {}
-
+		self.unresolved_jumps = {}
+		self.tracked_jumps = {}
 
 	def _is_immediate(self, operand: str) -> bool:
 		try:
@@ -34,6 +35,13 @@ class Assembler:
 			return int(value, 16)
 		return int(value, 10 if value.isdigit() or value.startswith("-") else 16)
 
+
+	def _add_unresolved_jump(self, jump_type: str, label: str, orig_opcode: int) -> None:
+		# print(f"Adding unresolved {jump_type} at offset {self.buffer.asm_offset} -> dest is {label}")
+		# print(f"ORIGINAL JUMP CODE FOR UNRESOLVED: {hex(self.buffer.read_int(self.buffer.asm_offset - 2, size=2))}")
+		self.unresolved_jumps[self.buffer.asm_offset] = [label, jump_type, orig_opcode]
+		self.tracked_jumps[self.buffer.asm_offset] = self.buffer.asm_offset
+		
 
 	def _add_unresolved_label(self, label: str, add_to_payload: bool = True) -> None:
 		if label not in self.unresolved_labels:
@@ -57,20 +65,14 @@ class Assembler:
 		 :param pattern: Hexadecimal string pattern (wildcards not supported yet)
 		
 		"""
-		byte_length = len(pattern) // 2
+		pattern_array = bytearray(80)
+		byte_length = len(pattern) // 2		# explicit integer division
+		swapped_pattern_len = byte_length.to_bytes(4, byteorder="little") # swap endianness on pattern length
+		pattern_array[4:8] = swapped_pattern_len # add pattern len
+		pattern_array[12:12 + byte_length] = bytes.fromhex(pattern)	# add the pattern, itself
 
-		length_hex_le = bytearray.fromhex(f"{byte_length:08X}")[::-1].hex()
-		header = "00000000" + length_hex_le + "00000000"
-
-		final_pattern = header + pattern
-		final_pattern_b = bytes.fromhex(final_pattern)
-
-		padding_len = 80 - len(final_pattern_b)
-		final_pattern_b += b'\x00' * padding_len
-
-		self.buffer.write(self.buffer.asm_offset, final_pattern_b)
-		self.buffer.asm_offset += len(final_pattern_b)
-		self.buffer.asm_size = max(self.buffer.asm_size, self.buffer.asm_offset)
+		self.buffer.write(self.buffer.asm_offset, bytes(pattern_array))
+		self.buffer.asm_offset += len(pattern_array)
 
 		# print(f"Added scan pattern ({byte_length} bytes), padded to {len(final_pattern_b)} bytes")
 		
@@ -89,31 +91,15 @@ class Assembler:
 		name = name.replace(":", "")
 		pos = self.buffer.asm_offset
 		self.buffer.labels[name] = pos
+		print(f"ADDED LABEL {name} AT OFFSET {self.buffer.asm_offset}")
 		
-		# add the placeholder for label first
-		# DO NOT ADD THE ACTUAL FUCKING LABEL TO THE BUFFER IF IT'S CALLED VIA THIS, YOU DOOFUS
-		# self._add_unresolved_label(name, add_to_payload=False)
-		# print(f"Label {name} set at position {pos}")
-		
-		# check if size is explicitly included and add size - 4 bytes of padding if so
 		size = 4
-		padding_size = 0
 		if "/" in name:
+			# We don't actually add placeholder bytes for these, just record offset here and increase offset by whatever number is to the right of '/'
 			size = int(name.split("/")[-1])
-			print(f"{name} size: {size}")
-			padding_size = 4 if size == 4 else size - 4
+			self.buffer.storage_label_offset += size
+
 		
-			# add size - 4 of byte padding to payload
-			to_add = bytearray()
-			to_add += b'\x00' * padding_size
-			print(to_add)
-			self.buffer.write(self.buffer.asm_offset, to_add)
-		
-			# if / is explicitly included then we need to adjust the asm_offset since we adding padded bytes
-		# print(f"ASM offset before: {self.buffer.asm_offset}")
-		self.buffer.asm_offset += padding_size
-		# print(f"Added {padding_size} bytes of padding for Label '{name} for total size of {size}")
-		# print(f"ASM offset after: {self.buffer.asm_offset}")
 
 	
 	def _encode_arithmetic(self, instruction: str) -> None:
@@ -152,7 +138,7 @@ class Assembler:
 				break
 
 		# print(f"Instruction '{instruction}' matched '{arith_type}'")
-
+		# print(f"ASM_OFFSET BEFORE: {self.buffer.asm_offset}")
 		match arith_type:
 			case "reg_to_imm":
 				op, dst, imm = match.groups()
@@ -237,25 +223,25 @@ class Assembler:
 
 				if is_8bit:
 					opcode = {
-						"add": 0x00, "or":  0x08, "adc": 0x10, "sbb": 0x18,
-						"and": 0x20, "sub": 0x28, "xor": 0x30, "cmp": 0x38,
+						"add": 0x00, "sub": 0x28, "cmp": 0x3A, "xor": 0x30,
 					}[op]
 				elif is_16bit:
 					self.buffer.write_int(self.buffer.asm_offset, 0x66, size=1)
 					self.buffer.asm_offset += 1
 					opcode = {
-						"add": 0x03, "or":  0x0B, "adc": 0x13, "sbb": 0x1B,
-						"and": 0x23, "sub": 0x2B, "xor": 0x33, "cmp": 0x3B,
+						"add": 0x01, "sub": 0x29, "cmp": 0x39, "xor": 0x31,
 					}[op]
 				else:
 					opcode = {
-						"add": 0x03, "or":  0x0B, "adc": 0x13, "sbb": 0x1B,
-						"and": 0x23, "sub": 0x2B, "xor": 0x33, "cmp": 0x3B,
+						"add": 0x01, "sub": 0x29, "cmp": 0x3B, "xor": 0x31,
 					}[op]
 
 				self.buffer.write_int(self.buffer.asm_offset, opcode, size=1)
 				self.buffer.asm_offset += 1
-				modrm = (0b11 << 6) | (dst_code << 3) | src_code
+				if op == "cmp":
+					modrm = (0b11 << 6) | (dst_code << 3) | src_code
+				else:
+					modrm = (0b11 << 6) | (src_code << 3) | dst_code
 				self.buffer.write_int(self.buffer.asm_offset, modrm, size=1)
 				self.buffer.asm_offset += 1
 
@@ -383,6 +369,7 @@ class Assembler:
 
 			case _:
 				raise NotImplementedError(f"arithmetic not implemented yet: {instruction}")
+		
 
 
 	def _encode_mov(self, instruction: str) -> None:
@@ -404,6 +391,7 @@ class Assembler:
 			("reg_to_imm", 				re.compile(r"mov\s+\{(\w+)}\s*,\s*(-?(?:0x)?[\da-fA-F]+)\s*$")),
 			("reg_from_sib_label",		re.compile(r"mov\s+\{(\w+)}\s*,\s*dword\[\{(\w+)}\*(\d+)\+<([a-zA-Z_][\w]*)>\]\s*$")),
 			("reg_from_mem_reg_reg",	re.compile(r"mov\s+\{(\w+)}\s*,\s*dword\[\{(\w+)}\+\{(\w+)}\]\s*$")),
+			("reg_disp_from_reg", 		re.compile(r"mov\s+\[\{([a-z]{3})}\+(?:0x)?(\d+|[0-9a-fA-F]+)\],\s*\{([a-z]{3})}$")),
 			("reg_from_mem_disp", 		re.compile(r"mov\s+\{(\w+)}\s*,\s*(?:byte|word|dword)?\[\{(\w+)}\+(-?(?:0x[\da-fA-F]+|\d+|[a-fA-F\d]+))\]\s*$")),
 			("reg_from_label_dword",	re.compile(r"mov\s+\{(\w+)}\s*,\s*dword\[<([a-zA-Z_][\w]*)>\]\s*$")),
 			("reg_from_label_plain",	re.compile(r"mov\s+\{(\w+)\},\s*\[\<([a-zA-Z_][a-zA-Z0-9_]*)\>\]")),
@@ -499,10 +487,15 @@ class Assembler:
 
 			case "reg_from_mem_disp":
 				dst, base, offset = match.groups()
-				mod = 0b10
+				disp = int(offset, 16)
+				if -128 <= disp <= 127:
+					mod = 0b01
+					disp_size = 1
+				else:
+					mod = 0b10
+					disp_size = 4
 				reg = reg_code[dst]
 				rm = reg_code[base]
-				offset_val = int(offset, 16)
 				self.buffer.write_int(self.buffer.asm_offset, 0x8B, size=1)
 				self.buffer.asm_offset += 1
 				if rm == 0b100:  # esp
@@ -514,8 +507,31 @@ class Assembler:
 				else:
 					self.buffer.write_int(self.buffer.asm_offset, (mod << 6) | (reg << 3) | rm, size=1)
 					self.buffer.asm_offset += 1
-				self.buffer.write_int(self.buffer.asm_offset, offset_val)
-				self.buffer.asm_offset += 4
+				self.buffer.write_int(self.buffer.asm_offset, disp, size=disp_size)
+				self.buffer.asm_offset += disp_size
+
+			case "reg_disp_from_reg":
+				base_reg, disp_str, src_reg = match.groups()
+				base_code = reg_code[base_reg]
+				src_code = reg_code[src_reg]
+				disp = int(disp_str, 16)
+
+				if -128 <= disp <= 127:
+					mod = 0b01
+					disp_size = 1
+				else:
+					mod = 0b10
+					disp_size = 4
+				
+				modrm = (mod << 6) | (src_code << 3) | base_code
+
+				self.buffer.write_int(self.buffer.asm_offset, 0x89, size=1)
+				self.buffer.asm_offset += 1
+				self.buffer.write_int(self.buffer.asm_offset, modrm, size=1)
+				self.buffer.asm_offset += 1
+				self.buffer.write_int(self.buffer.asm_offset, disp, size=disp_size)
+				self.buffer.asm_offset += disp_size
+				return
 
 			case "reg_from_label_plain":
 				dest = match.group(1)
@@ -783,7 +799,7 @@ class Assembler:
 				else:
 					self.buffer.write_int(self.buffer.asm_offset, reg_code["imm32"], size=1)
 					self.buffer.asm_offset += 1
-					self.buffer.write_int(self.buffer.asm_offset, value, size=4)
+					self.buffer.write_int(self.buffer.asm_offset, value)
 					self.buffer.asm_offset += 4
 
 			case "label":
@@ -854,7 +870,7 @@ class Assembler:
 			"jmp_rel8":  0xEB,
 			"jmp_rel32": 0xE9,
 			"jmp_rm32":  0xFF,  # /4 with ModRM
-			"ljmp":      0xEA,
+			"ljmp":      0xFF25,	# NOT A REAL LJMP, TREAT AS ABSOLUTE INDIRECT JMP
 
 			# Full conditional jumps (rel32 only)
 			"jae":  0x0F83,
@@ -875,13 +891,9 @@ class Assembler:
 
 		patterns = [
 			("cond", 			re.compile(r"^(jz|jnz|je|jne|ja|jb|jl|jg|jo|jno|js|jns|jp|jnp|jc|jnc|jae|jbe|jge)\s+(?:\{([\w]+)\}|\[<([\w]+)>\]|<([\w]+)>)$")),
-			("jmp", 			re.compile(r"^jmp\s+(?:<([\w]+)>|\[<([\w]+)>\])$")),
 			("jmp_reg",			re.compile(r"^jmp\s+\{(\w+)}$")),
-			("jmp_mem", 		re.compile(r"^jmp\s+\[\<([\w]+)\>\]$")),
-			("jmp_mem_dword", 	re.compile(r"^jmp\s+dword\[\<([\w]+)\>\]$")),
-			("ljmp",   			re.compile(r"^ljmp\s+([\w]+)$")),
-			("ljmp_mem",   		re.compile(r"^ljmp\s+\[<([\w]+)>\]$")),
-			("ljmp_mem_dword",  re.compile(r"^ljmp\s+dword\[<([\w]+)>\]$")),
+			("jmp_label_rel",	re.compile(r"^jmp\s+(?:<([\w]+)>|\[<([\w]+)>\])$")),
+			("ljmp_label",   	re.compile(r"^ljmp\s+\[<([\w]+)>\]$")),	# NOT A REAL LJMP, TREAT AS INDIRECT ABSOLUTE JMP
 		]
 
 		jump_type = None
@@ -899,31 +911,28 @@ class Assembler:
 		# print(f"Instruction '{instruction}' matched '{jump_type}'")
 		match jump_type:
 			case "cond":
+				# size 6
 				mnem = operand_parts[0]
 				label = next(part for part in operand_parts[1:] if part)
-
-				# Normalize symbolic label syntax
-				if label.startswith("[<") and label.endswith(">]"):
-					label = label[2:-2]
-				elif label.startswith("<") and label.endswith(">"):
-					label = label[1:-1]
-				elif label.startswith("{") and label.endswith("}"):
-					label = label[1:-1]
-
 				opcode = jump_codes[mnem]
-				self.buffer.write_int(self.buffer.asm_offset, opcode >> 8, size=1)
-				self.buffer.asm_offset += 1
-				self.buffer.write_int(self.buffer.asm_offset, opcode & 0xFF, size=1)
-				self.buffer.asm_offset += 1
-				self._add_unresolved_label(label)
+				self._add_unresolved_jump(jump_type, label, opcode)
+				self.buffer.write_int(self.buffer.asm_offset, opcode, size=2, byteorder="big")
+				self.buffer.asm_offset += 2
+				self.buffer.write_int(self.buffer.asm_offset, 0xDEADBEEF)
+				self.buffer.asm_offset += 4
 
-			case "jmp":
-				operand = next(filter(None, operand_parts)) if operand_parts else None
-				self.buffer.write_int(self.buffer.asm_offset, jump_codes["jmp_rel32"], size=1)
+			case "jmp_label_rel":
+				# size 5
+				label = next(filter(None, operand_parts)) if operand_parts else None
+				opcode = jump_codes["jmp_rel32"]
+				self._add_unresolved_jump(jump_type, label, opcode)
+				self.buffer.write_int(self.buffer.asm_offset, opcode, size=1)
 				self.buffer.asm_offset += 1
-				self._add_unresolved_label(operand)
+				self.buffer.write_int(self.buffer.asm_offset, 0xDEADBEEF)
+				self.buffer.asm_offset += 4
 
 			case "jmp_reg":
+				# size 2
 				reg_map = {
 					"eax": 0x00, "ecx": 0x01, "edx": 0x02, "ebx": 0x03,
 					"esp": 0x04, "ebp": 0x05, "esi": 0x06, "edi": 0x07
@@ -935,47 +944,21 @@ class Assembler:
 				modrm = (0b11 << 6) | (0b100 << 3) | reg_map[operand]  # /4
 				self.buffer.write_int(self.buffer.asm_offset, modrm, size=1)
 				self.buffer.asm_offset += 1
+				return
 
-			case "jmp_mem":
-				self.buffer.write_int(self.buffer.asm_offset, jump_codes["jmp_rm32"], size=1)
-				self.buffer.asm_offset += 1
-				self.buffer.write_int(self.buffer.asm_offset, 0x25, size=1)
-				self.buffer.asm_offset += 1
-				self._add_unresolved_label(operand)
-
-			case "jmp_mem_dword":
-				self.buffer.write_int(self.buffer.asm_offset, jump_codes["jmp_rm32"], size=1)
-				self.buffer.asm_offset += 1
-				self.buffer.write_int(self.buffer.asm_offset, 0x25, size=1)
-				self.buffer.asm_offset += 1
-				self._add_unresolved_label(operand)
-
-			case "ljmp":
-				self.buffer.write_int(self.buffer.asm_offset, jump_codes["ljmp"], size=1)
-				self.buffer.asm_offset += 1
-				self._add_unresolved_label(operand)
-				self.buffer.write_int(self.buffer.asm_offset, 0x00, size=2)  # dummy segment selector
+			case "ljmp_label":
+				# size 5
+				# NOT A REAL LJMP, TREAT AS ABSOLUTE INDIRECT JUMP
+				label = next(filter(None, operand_parts)) if operand_parts else None
+				opcode = jump_codes["ljmp"]
+				# self._add_unresolved_jump(jump_type, label, opcode)
+				self.buffer.write_int(self.buffer.asm_offset, opcode, size=2)
 				self.buffer.asm_offset += 2
-
-			case "ljmp_mem":
-				self.buffer.write_int(self.buffer.asm_offset, jump_codes["ljmp"], size=1)
-				self.buffer.asm_offset += 1
-				self._add_unresolved_label(operand)
-				self.buffer.write_int(self.buffer.asm_offset, 0x00, size=2)  # segment
-				self.buffer.asm_offset += 2
-
-			case "ljmp_mem_dword":
-				self.buffer.write_int(self.buffer.asm_offset, jump_codes["ljmp"], size=1)
-				self.buffer.asm_offset += 1
-				self.buffer.write_int(self.buffer.asm_offset, 0x25, size=1)
-				self.buffer.asm_offset += 1
-				self._add_unresolved_label(operand)
-				self.buffer.write_int(self.buffer.asm_offset, 0x00, size=2)
-				self.buffer.asm_offset += 2
+				self._add_unresolved_label(label)
 
 			case _:
 				raise NotImplementedError(f"Unrecognized jump not implemented: {instruction}")
-
+			
 
 	def _encode_lea(self, instruction: str) -> None:
 		reg_code = {
@@ -1020,13 +1003,20 @@ class Assembler:
 				use_sib = index is not None or base_code == 0x04
 
 				# Decide ModRM mode based on displacement
-				if disp_int or disp_label:
-					mod = 0b10  # 32-bit disp
-				elif base_code == 0x05:  # EBP with no displacement always requires disp
-					mod = 0b01  # 8-bit disp
-					disp_int = "0"
+				if disp_int:
+					disp_val = int(disp_int)
+					if -128 <= disp_val <= 127:
+						mod = 0b01  # 8-bit disp
+						disp_size = 1
+					else:
+						mod = 0b10  # 32-bit disp
+						disp_size = 4
+				elif disp_label:
+					mod = 0b10
+					disp_size = 4
 				else:
 					mod = 0b00
+					disp_size = 0
 
 				modrm = (mod << 6) | (dst_code << 3) | (0x04 if use_sib else base_code)
 				self.buffer.write_int(self.buffer.asm_offset, modrm, size=1)
@@ -1038,8 +1028,8 @@ class Assembler:
 					self.buffer.asm_offset += 1
 
 				if disp_int:
-					self.buffer.write_int(self.buffer.asm_offset, int(disp_int), size=4)
-					self.buffer.asm_offset += 4
+					self.buffer.write_int(self.buffer.asm_offset, int(disp_int), size=disp_size)
+					self.buffer.asm_offset += disp_size
 				elif disp_label:
 					self._add_unresolved_label(disp_label)
 
@@ -1051,6 +1041,7 @@ class Assembler:
 
 				dst_code = reg_code[dst_reg]
 				index_code = reg_code[index]
+				base_code = 0x00  # default to EAX if no explicit base
 				scale_val = int(scale)
 				scale_bits = {1: 0b00, 2: 0b01, 4: 0b10, 8: 0b11}.get(scale_val)
 				if scale_bits is None:
@@ -1059,12 +1050,17 @@ class Assembler:
 				self.buffer.write_int(self.buffer.asm_offset, 0x8D, size=1)
 				self.buffer.asm_offset += 1
 
-				mod = 0b00 if (disp_int or disp_label) else 0b01
-				modrm = (mod << 6) | (dst_code << 3) | 0x04  # SIB always
+				# Use mod 00 unless there's a displacement
+				if disp_int or disp_label:
+					mod = 0b10
+				else:
+					mod = 0b00
+
+				modrm = (mod << 6) | (dst_code << 3) | 0x04  # SIB follows
 				self.buffer.write_int(self.buffer.asm_offset, modrm, size=1)
 				self.buffer.asm_offset += 1
 
-				sib = (scale_bits << 6) | (index_code << 3) | 0x05  # base = none
+				sib = (scale_bits << 6) | (index_code << 3) | base_code
 				self.buffer.write_int(self.buffer.asm_offset, sib, size=1)
 				self.buffer.asm_offset += 1
 
@@ -1235,7 +1231,7 @@ class Assembler:
 		TODO - clean this fucking mess up
 		"""
 		instruction = instruction.strip()
-		
+		print(f"ASM_OFFSET BEFORE: {self.buffer.asm_offset}")
 		if "->" in instruction:
 			hex_string = instruction.split(" -> ")[-1]
 			hex_string = hex_string.strip().replace(" ", "")
@@ -1255,56 +1251,185 @@ class Assembler:
 			return
 		
 		if "push" in instruction:
-			return self._encode_push(instruction)
+			self._encode_push(instruction)
 		elif "pop" in instruction:
-			return self._encode_pop(instruction)
+			self._encode_pop(instruction)
 		elif re.match(r"^\s*(add|sub|cmp|xor|and|or|inc|dec|shl)\b", instruction, re.IGNORECASE):
-			return self._encode_arithmetic(instruction)
+			self._encode_arithmetic(instruction)
 		elif re.match(r"^\s*(jge|jae|jbe|ljmp|jmp|jz|jnz|je|jne|ja|jb|jl|jg|jo|jno|js|jns|jp|jnp|jc|jnc)\b", instruction, re.IGNORECASE):
-			return self._encode_jump(instruction)
+			self._encode_jump(instruction)
 		elif re.match(r"^\s*mov\b", instruction, re.IGNORECASE):
-			return self._encode_mov(instruction)
+			self._encode_mov(instruction)
 		elif re.match(r"^\s*lea\b", instruction, re.IGNORECASE):
-			return self._encode_lea(instruction)
+			self._encode_lea(instruction)
 		elif re.match(r"^\s*push\b", instruction, re.IGNORECASE):
-			return self._encode_push(instruction)
+			self._encode_push(instruction)
 		elif re.match(r"^\s*pop\b", instruction, re.IGNORECASE):
-			return self._encode_pop(instruction)
+			self._encode_pop(instruction)
 		elif re.match(r"^\s*call\b", instruction, re.IGNORECASE):
-			return self._encode_call(instruction)
+			self._encode_call(instruction)
 		elif re.match(r"^\s*(ret|retn)\b", instruction, re.IGNORECASE):
-			return self._encode_retn(instruction)
+			self._encode_retn(instruction)
 		elif re.match(r"^\s*fld\b", instruction, re.IGNORECASE):
-			return self._encode_fld(instruction)
+			self._encode_fld(instruction)
 		elif re.match(r"^\s*test\b", instruction, re.IGNORECASE):
-			return self._encode_test(instruction)
+			self._encode_test(instruction)
 		elif re.match(r"^\s*nop\b", instruction, re.IGNORECASE):
-			return self._encode_nop(instruction)
+			self._encode_nop(instruction)
+		else:
+			raise NotImplementedError(f"Instruction fell through all handlers: {instruction}")
+		print(f"ASM_OFFSET AFTER: {self.buffer.asm_offset}")
+	
 
-		raise NotImplementedError(f"Instruction fell through all handlers: {instruction}")
+	def _resolve_jumps(self, base_address: int) -> None:
+		"""
+		Resolves relative jumps in the buffer.
+
+		When resolving jumps, need to remember:
+			- ljmps aren't actualy ljmps and are instead jmp to absolute addresses, so address is used in placeholder
+			- cond jumps are always relative (pass jump_diff + padding to buffer position) and always start at jump_offset + 2
+			- all normal jumps are relative for now (pass jump_diff + padding) and always start at jump_offset + 1
+			- 
+		
+		"""
+		# print("UNRESOLVED JUMPS")
+		print(self.unresolved_jumps)
+		jump_short_map = {
+			0xE9: 0xEB,	   # rel32 to rel8
+    		0x0F80: 0x70,  # JO
+   			0x0F81: 0x71,  # JNO
+			0x0F82: 0x72,  # JB / JC / JNAE
+			0x0F83: 0x73,  # JNB / JNC / JAE
+			0x0F84: 0x74,  # JZ / JE
+			0x0F85: 0x75,  # JNZ / JNE
+			0x0F86: 0x76,  # JBE / JNA
+			0x0F87: 0x77,  # JA / JNBE
+			0x0F88: 0x78,  # JS
+			0x0F89: 0x79,  # JNS
+			0x0F8A: 0x7A,  # JP / JPE
+			0x0F8B: 0x7B,  # JNP / JPO
+			0x0F8C: 0x7C,  # JL / JNGE
+			0x0F8D: 0x7D,  # JGE / JNL
+			0x0F8E: 0x7E,  # JLE / JNG
+			0x0F8F: 0x7F,  # JG / JNLE
+		}
+		# first pass, shrink buffer if possible!
+		for orig_j_pos in sorted(self.unresolved_jumps):
+			dst, j_type, j_code_orig = self.unresolved_jumps[orig_j_pos]
+			j_pos_new = self.tracked_jumps[orig_j_pos]
+			dst_pos = self.buffer.labels[dst]
+			eip = 6		# max size end instruction pointer for jump
+			j_size = dst_pos - (j_pos_new + eip)
+
+			if j_type == "cond":
+				# size 1/2 for rel8/rel32 opcode, size 1/4 for signed rel8/32 value
+				if -128 <= j_size <= 127:
+
+					# shrink buffer by 4 bytes to account for 2 byte opcode instead of 6byte opcode
+					self.buffer.delete_bytes(j_pos_new + 2, 4)
+					self.buffer.asm_offset -= 4
+					self.buffer.asm_size -= 4
+					
+					# update actual jump positions for jumps after this one
+					for mod_j in self.tracked_jumps:
+						if self.tracked_jumps[mod_j] > j_pos_new:
+							self.tracked_jumps[mod_j] -= 4
+
+					# update label offsets that may be affected after this jump
+					for label, offset in self.buffer.labels.items():
+						if offset > j_pos_new:
+							print(f"LABEL {label} original offset: {self.buffer.labels[label]}")
+							self.buffer.labels[label] -= 4
+							print(f"LABEL {label} new offset: {self.buffer.labels[label]}")
+					
+			elif j_type == "jmp_label_rel":
+				if -128 <= j_size <= 127:
+					# shrink buffer by 3 bytes to account for 2 byte instruction instead of 5byte instruction
+					self.buffer.delete_bytes(j_pos_new + 2, 3)
+					self.buffer.asm_offset -= 3
+					self.buffer.asm_size -= 3
+					
+					# update label offsets that may be affected after this jump
+					for label, offset in self.buffer.labels.items():
+						if offset > j_pos_new:
+							self.buffer.labels[label] -= 3
+					
+					# update actual jump positions for jumps after this one
+					for mod_j in self.tracked_jumps:
+						if self.tracked_jumps[mod_j] > j_pos_new:
+							self.tracked_jumps[mod_j] -= 3
+			else:
+				raise Exception(f"Found jump type {j_type} but it doesn't need to be resolved!")
+		
+		# second pass, apply jump distance!
+		for orig_j_pos in sorted(self.unresolved_jumps):
+			dst, j_type, j_code_orig = self.unresolved_jumps[orig_j_pos]
+			j_pos_new = self.tracked_jumps[orig_j_pos]
+			dst_pos = self.buffer.labels[dst]
+			eip = 5		# end instruction pointer
+			j_size = dst_pos - (j_pos_new + eip)
+
+			if j_type == "cond":
+				# size 1/2 for rel8/rel32 opcode, size 1/4 for signed rel8/32 value
+				if -128 <= j_size <= 127:
+					eip = 2
+					j_size = dst_pos - (j_pos_new + eip)
+					sj_code = jump_short_map[j_code_orig]
+					self.buffer.write_int(j_pos_new, sj_code, size=1)
+					self.buffer.write_int(j_pos_new + 1, j_size & 0xFF, size=1)
+
+				else:
+					eip = 6
+					j_size = dst_pos - (j_pos_new + eip)
+					self.buffer.write_int(j_pos_new, j_code_orig, size=2, byteorder="big")
+					self.buffer.write_int(j_pos_new + 2, j_size & 0xFFFFFFFF)
+					
+			elif j_type == "jmp_label_rel":
+				if -128 <= j_size <= 127:
+					eip = 2
+					j_size = dst_pos - (j_pos_new + eip)
+					sj_code = jump_short_map[j_code_orig]
+					self.buffer.write_int(j_pos_new, sj_code, size=1)
+					self.buffer.write_int(j_pos_new + 1, j_size & 0xFF, size=1)
+				else:
+					j_size = dst_pos - (j_pos_new + eip)
+					self.buffer.write_int(j_pos_new + 1, j_size & 0xFFFFFFFF)
+			else:
+				raise Exception(f"Found jump type {j_type} but it doesn't need to be resolved!")
+
+		# re-resolve labels to account for any buffer shrinkage from reassigning rel32 to rel8 jumps
+		self._resolve_labels(base_address)
+
+
+	def _resolve_labels(self, base_address: int) -> None:
+		for label, positions in self.unresolved_labels.items():
+			if label not in self.buffer.labels:
+				raise ValueError(f"Unresolved label: {label}")
+
+			final_addr = self.buffer.labels[label] + base_address
+
+			for pos in positions:
+				self.buffer.resolve_label(pos, final_addr)
 
 
 	def assemble(self, base_address: int) -> None:
 		"""
 		Resolves all tracked symbolic labels and replaces them with base_address + offset.
+		Resolves all tracked jumps according to jump type
 		
 			:param base_address: Address given by VirtualAllocEx as the entry point for buffer to be written
+
 		"""
-		for label, positions in self.unresolved_labels.items():
-			if label not in self.buffer.labels:
-				raise ValueError(f"Unresolved label: {label}")
-			
-			# final_addr = base_address + self.buffer.labels[label]
-			final_addr = self.buffer.labels[label]
-			for pos in positions:
-				# print(f"Resolved label '{label}' to address 0x{final_addr:X} at offsets {pos}")
-				# print(f"Original Bytes: {self.buffer.buffer[pos:pos+4]}")
-				self.buffer.resolve_label(pos, final_addr)
+		# self._resolve_labels(base_address)
+		self._resolve_jumps(base_address)
+		self._resolve_labels(base_address)
 				# print(f"New Bytes: {self.buffer.buffer[pos:pos+4]}")
 			# print(f"Resolved label '{label}' to address 0x{final_addr:X} at offsets {positions}")
 		# print(f"[ASSEMBLE] All control flow placeholders patched.")
 		# print(f"Generated ASM String: {self.buffer.buffer.hex()}")
 		# print(f"Total ASM Size: {self.buffer.asm_size}")
+
+
 
 
 
@@ -1316,6 +1441,7 @@ TODO
 	- Track relative jumps to resolve w/label resolution during assemble()
 
 - x86 is fucking stupid
+- refactor assembler where appropriate
 - retest Scanner buffer once done
 - verify code cave buffer once relative jumps are fixed
 
