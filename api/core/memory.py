@@ -5,9 +5,14 @@ ProjectPotato memory module
 
 """
 #stdlib
+import os
+import mmap
 import ctypes
 import ctypes.wintypes as wintypes
 import struct
+
+#mylib
+from scanner import ProcessFileScanner
 
 
 
@@ -35,6 +40,7 @@ class MemoryBuffer:
 		self.buffer = bytearray(data) if data else bytearray()
 		self.asm_size = 0
 		self.asm_offset = 0
+		self.storage_labels = {}
 		self.labels = {}
 		self.jumps = {}
 		self.storage_label_offset = 0
@@ -150,7 +156,7 @@ class MemoryBuffer:
 
 
 
-class ProcessMemory:
+class ProcessMemory(ProcessFileScanner):
 	"""
 	
 	Instance used when dealing with memory of a target process
@@ -159,9 +165,45 @@ class ProcessMemory:
 	"""
 	def __init__(self, pid):
 		self._kernel32 = ctypes.WinDLL("kernel32.dll", use_last_error=True)
-		self.pid = pid   			# ProcessID
-		self._proc = None			# Process Handle
-		self.entry_point = None		# Address of entry_point from VirtualAllocX
+		self._psapi = ctypes.WinDLL("psapi.dll", use_last_error=True)
+		self.pid = pid																		# ProcessID
+		self.base_address = 0																# Base Address of Process
+		self.process_max_size_offset = 0x4FFF000											# Used for scanning
+		self._proc = self._kernel32.OpenProcess(PROCESS_ALL_ACCESS, False, self.pid)		# ProcessHandle
+		self._pe_path = self._get_module_filename()
+		super().__init__(self._pe_path)
+		
+
+	def _get_module_filename(self):
+		GetModuleFileNameExW = self._psapi.GetModuleFileNameExW
+		GetModuleFileNameExW.argtypes = [
+			wintypes.HANDLE, 
+			wintypes.HMODULE,
+			wintypes.LPWSTR,
+			wintypes.DWORD
+		]
+		GetModuleFileNameExW.restype = wintypes.DWORD
+
+		h_module = wintypes.HMODULE()
+		cb_needed = wintypes.DWORD()
+		enum_modules = self._psapi.EnumProcessModules
+		enum_modules.argtypes = [
+			wintypes.HANDLE,
+			ctypes.POINTER(wintypes.HMODULE),
+			wintypes.DWORD,
+			ctypes.POINTER(wintypes.DWORD)
+		]
+		enum_modules.restype = wintypes.BOOL
+
+		if not enum_modules(self._proc, ctypes.byref(h_module), ctypes.sizeof(h_module), ctypes.byref(cb_needed)):
+			raise OSError(f"EnumProcessModules failed with error -> {ctypes.get_last_error()}")
+		self.base_address = h_module.value		
+		fname_buffer_len = 260
+		fname_buffer = ctypes.create_unicode_buffer(fname_buffer_len)
+		if not GetModuleFileNameExW(self._proc, h_module, fname_buffer, fname_buffer_len):
+			raise OSError(f"GetModuleFileNameExW failed with error -> {ctypes.get_last_error()}")
+
+		return fname_buffer.value
 
 
 	def memory_open(self) -> None:
@@ -201,7 +243,6 @@ class ProcessMemory:
 		"""reads from the given address of current process handle"""
 		if not self._proc:
 			self.memory_open()
-		
 		buffer = ctype_type()
 		self._kernel32.ReadProcessMemory(self._proc, address, ctypes.byref(buffer), ctypes.sizeof(buffer), None)
 		return buffer.value
@@ -339,7 +380,6 @@ class ProcessMemory:
 		 :param address: Address in remote provess memory where data should be written.
 		 :param mem_buffer: A MemoryBuffer instance containing assembled code/data
 		
-		
 		"""
 		if not self._proc:
 			self.memory_open()
@@ -353,3 +393,57 @@ class ProcessMemory:
 			err = ctypes.get_last_error()
 			print(f"Error received from WriteProcessMemory -> {err}")
 			raise OSError(f"WriteProcessMemory failed at 0x{address:X}")
+
+
+	def find_assertions(self, patterns: dict[str, list[str]]) -> dict[str, int]:
+		"""
+		Scans memory starting from self.base_address for strings matching provided patterns and captures pointers.
+
+		:param base: Starting address of the scan range.
+		:param patterns: Dictionary mapping keys to [file_hint, substring, return_type], where:
+			- file_hint (str): Currently unused, may point to a section name or source file.
+			- substring (str): Substring to match within dereferenced strings.
+			- return_type (str): "ptr" to return the dereferenced address, otherwise base address.
+		:param size: Size of the memory region to scan.
+		:return: Dictionary mapping each pattern key to the matching address (int).
+		"""
+		results = {}
+		for key, (file_hint, message, line_number, offset) in patterns.items():
+			results[key] = self.find_assertion(file_hint, message, line_number, offset)
+		return results
+
+
+	def find_assertion(self, file_hint: str, message: str, line_number: int, offset: int = 0) -> int:
+		"""
+		Build function signature based on data retrieved from .rdata then looks for that pattern in .text
+		
+		"""
+		msg_bytes = message.encode() + b'\x00'
+		file_bytes = file_hint.encode() + b'\x00'
+		msg_offset = self.read_section(".rdata").find(msg_bytes)
+		file_offset = self.read_section(".rdata").find(file_bytes)
+		if msg_offset == -1 or file_offset == -1:
+			return 0
+		
+		msg_va = self.image_base + self.sections[".rdata"][0] + msg_offset
+		file_va = self.image_base + self.sections[".rdata"][0] + file_offset
+
+		# encode push (optional line number), mov edx, mov ecx
+		pattern = bytearray()
+		mask = ""
+		if line_number:
+			if line_number <= 0xFF:
+				pattern += b"\x6A" + struct.pack("B", line_number)
+				mask += "xx"
+			else:
+				pattern += b"\x68" + struct.pack("<I", line_number)
+				mask += "xxxx"
+		
+		pattern += b"\xBA" + struct.pack("<I", msg_va)
+		mask += "x" + "x" * 4
+		pattern += b"\xB9" + struct.pack("<I", file_va)
+		mask += "x" + "x" * 4
+
+		# Scan .text for encoded pattern
+		address = self.find_in_section(".text", pattern, mask, offset)
+		return address

@@ -5,12 +5,16 @@ Process Scanning module for ProjectPotato
 
 """
 #stdlib
+import os
+import mmap
+import struct
+import ctypes
+import ctypes.wintypes as wintypes
 import win32gui
 import win32process
 from dataclasses import dataclass
 from typing import List
-import ctypes
-import ctypes.wintypes as wintypes
+
 
 #3rdpartylib
 import psutil
@@ -144,12 +148,83 @@ class ProcessScanner:
 
 
 
-class MemoryScanner:
+class ProcessFileScanner:
 	"""
-	
-	Singleton class which scans given process memory for specific inputted patterns
+	Class instance which handles PE header parsing and static disk scanning of .rdata/.text sections.
+	Used to resolve assertion strings and generate opcode patterns.
 	
 	"""
-	def __init__(self):
-		self.proc_mem = None
+	def __init__(self, pe_path: str):
+		self.pe_path = pe_path
+		self.image_base = 0
+		self.sections = {}
+		self._map_file()
+		self._parse_headers()
+
+	
+	def _map_file(self):
+		self.fd = os.open(self.pe_path, os.O_RDONLY)
+		self.size = os.path.getsize(self.pe_path)
+		self.mapped = mmap.mmap(self.fd, self.size, access=mmap.ACCESS_READ)
+
+
+	def _parse_headers(self):
+		# DOS Header is 64 bytes
+		dos_magic = self.mapped[:2]
+		if dos_magic != b'MZ':
+			raise ValueError("Invalid DOS header magic")
 		
+		e_lfanew = struct.unpack_from("<I", self.mapped, 0x3C)[0]
+		nt_signature = self.mapped[e_lfanew:e_lfanew + 4]
+		if nt_signature != b'PE\x00\x00':
+			raise ValueError("Invalid PE signature")
+		
+		file_header_offset = e_lfanew + 4
+		machine, num_sections, _, _, _, size_opt_header = struct.unpack_from("<HHIIIH", self.mapped, file_header_offset)
+		if machine != 0x14C:
+			raise ValueError(f"Only 32-bit PE files supported!")
+		
+		opt_header_offset = file_header_offset + 20
+		magic = struct.unpack_from("<H", self.mapped, opt_header_offset)[0]
+		if magic != 0x10b:
+			raise ValueError(f"Not a PE32 optional header!")
+		self.image_base = struct.unpack_from("<I", self.mapped, opt_header_offset + 28)[0]
+
+		section_offset = opt_header_offset + size_opt_header
+		for i in range(num_sections):
+			entry = self.mapped[section_offset + i * 40:section_offset + (i + 1) * 40]
+			name = entry[0:8].rstrip(b'\x00').decode(errors="ignore")
+			vaddr, vsize, raw_ptr = struct.unpack_from("<III", entry, 12)
+			self.sections[name] = (raw_ptr, vsize)
+		
+	
+	def read_section(self, section_name: str) -> bytes:
+		if section_name not in self.sections:
+			raise ValueError(f"Section {section_name} not found")
+		start, size = self.sections[section_name]
+		return self.mapped[start:start+size]
+	
+
+	def find_in_section(self, section_name: str, pattern: bytes, mask: str, offset: int = 0) -> int:
+		section = self.read_section(section_name)
+		start, _ = self.sections[section_name]
+		pat_len = len(mask)
+		first = pattern[0:1]
+		for i in range(len(section) - pat_len):
+			if section[i:i+1] != first:
+				continue
+
+			match = True
+			for j in range(pat_len):
+				if mask[j] == "x" and section[i + j] != pattern[j]:
+					match = False
+					break
+			
+			if match:
+				return self.image_base + start + i + offset
+		return 0
+
+
+	def close(self):
+		self.mapped.close()
+		os.close(self.fd)

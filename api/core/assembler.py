@@ -88,20 +88,25 @@ class Assembler:
 
 		"""
 		# register label at current offset for later resolution
-		name = name.replace(":", "")
-		pos = self.buffer.asm_offset
-		self.buffer.labels[name] = pos
-		print(f"ADDED LABEL {name} AT OFFSET {self.buffer.asm_offset}")
-		
+
+
 		size = 4
 		if "/" in name:
+			# It's a storage location
+			name, size = name.split("/")
+			self.buffer.storage_labels[name] = self.buffer.storage_label_offset
+			# print(f"ADDED LABEL {name} AT STORAGE OFFSET {self.buffer.storage_label_offset}")
 			# We don't actually add placeholder bytes for these, just record offset here and increase offset by whatever number is to the right of '/'
-			size = int(name.split("/")[-1])
-			self.buffer.storage_label_offset += size
+			self.buffer.storage_label_offset += int(size)
 
-		
+		else:
+			# don't add storage_label_offset to this because those bytes aren't injected!
+			name = name.replace(":", "")
+			pos = self.buffer.asm_offset
+			self.buffer.labels[name] = pos
+			# print(f"ADDED LABEL {name} AT OFFSET {self.buffer.labels[name]}")
 
-	
+
 	def _encode_arithmetic(self, instruction: str) -> None:
 		reg_code = {
 			"eax": 0x0, "ecx": 0x1, "edx": 0x2, "ebx": 0x3,
@@ -1231,7 +1236,8 @@ class Assembler:
 		TODO - clean this fucking mess up
 		"""
 		instruction = instruction.strip()
-		print(f"ASM_OFFSET BEFORE: {self.buffer.asm_offset}")
+		# print(f"ASM_OFFSET BEFORE: {self.buffer.asm_offset}")
+
 		if "->" in instruction:
 			hex_string = instruction.split(" -> ")[-1]
 			hex_string = hex_string.strip().replace(" ", "")
@@ -1278,7 +1284,7 @@ class Assembler:
 			self._encode_nop(instruction)
 		else:
 			raise NotImplementedError(f"Instruction fell through all handlers: {instruction}")
-		print(f"ASM_OFFSET AFTER: {self.buffer.asm_offset}")
+		# print(f"ASM_OFFSET AFTER: {self.buffer.asm_offset}")
 	
 
 	def _resolve_jumps(self, base_address: int) -> None:
@@ -1338,9 +1344,9 @@ class Assembler:
 					# update label offsets that may be affected after this jump
 					for label, offset in self.buffer.labels.items():
 						if offset > j_pos_new:
-							print(f"LABEL {label} original offset: {self.buffer.labels[label]}")
+							# print(f"LABEL {label} original offset: {self.buffer.labels[label]}")
 							self.buffer.labels[label] -= 4
-							print(f"LABEL {label} new offset: {self.buffer.labels[label]}")
+							# print(f"LABEL {label} new offset: {self.buffer.labels[label]}")
 					
 			elif j_type == "jmp_label_rel":
 				if -128 <= j_size <= 127:
@@ -1360,7 +1366,7 @@ class Assembler:
 							self.tracked_jumps[mod_j] -= 3
 			else:
 				raise Exception(f"Found jump type {j_type} but it doesn't need to be resolved!")
-		
+
 		# second pass, apply jump distance!
 		for orig_j_pos in sorted(self.unresolved_jumps):
 			dst, j_type, j_code_orig = self.unresolved_jumps[orig_j_pos]
@@ -1397,17 +1403,18 @@ class Assembler:
 			else:
 				raise Exception(f"Found jump type {j_type} but it doesn't need to be resolved!")
 
-		# re-resolve labels to account for any buffer shrinkage from reassigning rel32 to rel8 jumps
-		self._resolve_labels(base_address)
-
 
 	def _resolve_labels(self, base_address: int) -> None:
 		for label, positions in self.unresolved_labels.items():
 			if label not in self.buffer.labels:
-				raise ValueError(f"Unresolved label: {label}")
-
-			final_addr = self.buffer.labels[label] + base_address
-
+				if label not in self.buffer.storage_labels:
+					raise ValueError(f"Unresolved label: {label}")
+				else:
+					final_addr = self.buffer.storage_labels[label] + base_address
+			else:
+				# account for storage_label_offset because they're not in the buffer but included in buffer size
+				final_addr = self.buffer.labels[label] + base_address + self.buffer.storage_label_offset
+			# print(f"LABEL '{label}' resolved to 0x{final_addr:08X}")
 			for pos in positions:
 				self.buffer.resolve_label(pos, final_addr)
 
@@ -1415,30 +1422,19 @@ class Assembler:
 	def assemble(self, base_address: int) -> None:
 		"""
 		Resolves all tracked symbolic labels and replaces them with base_address + offset.
-		Resolves all tracked jumps according to jump type
+		Resolves all tracked jumps
 		
-			:param base_address: Address given by VirtualAllocEx as the entry point for buffer to be written
+			:param base_address: Address given by VirtualAllocEx as the entry point for buffer + storage_label_offset to be written
 
 		"""
+		print(self.buffer.labels)
 		# self._resolve_labels(base_address)
 		self._resolve_jumps(base_address)
 		self._resolve_labels(base_address)
-				# print(f"New Bytes: {self.buffer.buffer[pos:pos+4]}")
-			# print(f"Resolved label '{label}' to address 0x{final_addr:X} at offsets {positions}")
-		# print(f"[ASSEMBLE] All control flow placeholders patched.")
-		# print(f"Generated ASM String: {self.buffer.buffer.hex()}")
-		# print(f"Total ASM Size: {self.buffer.asm_size}")
-
-
-
 
 
 """
 TODO 
-- rewrite the whole fucking _encode_jump
-	- Always use 5byte placeholder for unconditional jumps
-	- Always use 6byte placeholder for conditional jumps
-	- Track relative jumps to resolve w/label resolution during assemble()
 
 - x86 is fucking stupid
 - refactor assembler where appropriate

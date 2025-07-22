@@ -25,13 +25,6 @@ class Core:
 	Core API instance which directly interfaces with an executable.
 	Do not expose this beyond the API scope!
 
-	
-
-	Usage
-
-	
-
-	
 	"""
 	def __init__(self, target_exe):
 		self.proc_scanner = ProcessScanner(target_exe)
@@ -52,13 +45,6 @@ class Core:
 		return self.proc_scanner.get_scanned_processes()
 
 
-	def get_scanned_address(self, label: str) -> int:
-		"""Retrieve a previously-saved memory address by label."""
-		if label not in self.saved_values:
-			raise KeyError(f"Missing scanned address for label: '{label}'")
-		return self.saved_values[label]
-
-
 	def set_value(self, label: str, value: int) -> None:
 		"""Saves a memory address or value by label."""
 		self.saved_values[label] = value
@@ -66,119 +52,202 @@ class Core:
 
 	def get_value(self, label: str) -> int:
 		"""Returns a memory address or value by label"""
-		return self.saved_values[label]
-	
+		if label in self.saved_values:
+			return self.saved_values[label]
+		raise KeyError(f"Trying to fetch {label} but it is not a saved value!")
+
+
+	def _get_scanned_label_address(self, label: str, offset: int):
+		base = self.scan_base
+		pmem = self.proc_memory
+		# print(f"LABEL ADDR '{label}': {self.scan_buffer.labels[label] + offset}")
+		return (pmem.memory_read(self.scan_buffer.labels[label] + 8 + self.scan_inject_base) - pmem.memory_read(self.scan_buffer.labels[label] + 4 + self.scan_inject_base) + offset)
+
 
 	def _read_scan_values(self):
 		"""Reads known offsets from the scan base and updates self.saved_values with the labels"""
 		pmem = self.proc_memory
-		base = self.scan_base
 
-		for i, label in enumerate(self.scan_buffer.labels):
-			scan_offset = scan_offsets[label]
-			offset = i * 8
-			label_addr = pmem.memory_read(base + offset)
-			mem_offset = label_addr + scan_offset
-			label_final = label.replace("Scan", "")
-			
-			if label_addr == 0:
-				raise RuntimeError(f"No address found for Label: {label}")
-			
-			print(f"Address for '{label_final}' found at {label_addr:X}")
-			
-			if label == "ScanAgentArray":
-				self.set_value("AgentBase", pmem.memory_read(mem_offset))
-				print(f"AgentBase set to {mem_offset}")
-				self.set_value("MaxAgents", mem_offset + 0x8)
-				print(f"MaxAgents set to {mem_offset + 0x8:X}")
-			
-			elif label == "ScanMyID":
-				self.set_value("MyID", pmem.memory_read(mem_offset))
-				print(f"MyID set to {mem_offset:X}")
+		self.saved_vales["PreGame"] = pmem.find_assertion("P:\Code\Gw\Ui\UiPregame.cpp", "!s_scene", 0, 0x34)
+		
+		self.saved_values["BasePointer"] = pmem.memory_read(self._get_scanned_label_address("ScanBasePointer", 8))
+		print(f"BasePointer -> 0x{self.saved_values["BasePointer"]:08X}")
 
-			elif label == "ScanBaseOffset":
-				self.set_value("PacketLocation", pmem.memory_read(mem_offset))
-				print(f"PacketLocation set to {mem_offset:X}")
-			
-			elif label == "ScanEngine":
-				self.set_value("MainStart", pmem.memory_read(mem_offset))
-				self.set_value("MainReturn", pmem.memory_read(mem_offset + 0x5))
-				print(f"MainStart set to {mem_offset:X}")
-				print(f"MainReturn set to {mem_offset + 0x5:X}")
+		self.saved_values["AgentBase"] = pmem.memory_read(self._get_scanned_label_address("ScanAgentBasePointer", 8) + 5)
+		print(f"AgentBase -> 0x{self.saved_values["AgentBase"]:08X}")
 
-			elif label == "ScanRenderFunc":
-				self.set_value("RenderingMod", pmem.memory_read(mem_offset))
-				self.set_value("RenderingModReturn", pmem.memory_read(mem_offset + 0xA))
-				print(f"MainStart set to {mem_offset:X}")
-				print(f"MainReturn set to {mem_offset + 0xA:X}")
+		self.saved_values["MaxAgents"] = self.saved_values["AgentBase"] + 8
+		print(f"MaxAgents -> 0x{self.saved_values["MaxAgents"]:08X}")
 
-			elif label == "ScanTargetLog":
-				self.set_value("TargetLogStart", pmem.memory_read(mem_offset))
-				self.set_value("TargetLogReturn", pmem.memory_read(mem_offset + 0x5))
-				print(f"TargetLogStart set to {mem_offset:X}")
-				print(f"TargetLogReturn set to {mem_offset + 0x5:X}")
-			
-			elif label == "ScanSkillLog":
-				self.set_value("SkillLogStart", pmem.memory_read(mem_offset))
-				self.set_value("SkillLogReturn", pmem.memory_read(mem_offset + 0x5))
-				print(f"SkillLogStart set to {mem_offset:X}")
-				print(f"SkillLogReturn set to {mem_offset + 0x5:X}")
-			
-			elif label == "ScanSkillCancelLog":
-				self.set_value("SkillCancelLogStart", pmem.memory_read(mem_offset))
-				self.set_value("SkillCancelLogReturn", pmem.memory_read(mem_offset + 0x6))
-				print(f"SkillCancelLogStart set to {mem_offset:X}")
-				print(f"SkillCancelLogReturn set to {mem_offset + 0x6:X}")
-			
-			elif label == "ScanChatLog":
-				self.set_value("ChatLogStart", pmem.memory_read(mem_offset))
-				self.set_value("ChatLogReturn", pmem.memory_read(mem_offset + 0x6))
-				print(f"ChatLogStart set to {mem_offset:X}")
-				print(f"ChatLogReturn set to {mem_offset + 0x6:X}")
-			
-			elif label == "ScanTraderHook":
-				self.set_value("TraderHookStart", pmem.memory_read(mem_offset))
-				self.set_value("TraderHookReturn", pmem.memory_read(mem_offset + 0x5))
-				print(f"TraderHookStart set to {mem_offset:X}")
-				print(f"TraderHookReturn set to {mem_offset + 0x5:X}")
-			
-			elif label == "ScanDialogLog":
-				self.set_value("DialogLogStart", pmem.memory_read(mem_offset))
-				self.set_value("DialogLogReturn", pmem.memory_read(mem_offset + 0x5))
-				print(f"DialogLogStart set to {mem_offset:X}")
-				print(f"DialogLogReturn set to {mem_offset + 0x5:X}")
-			
-			elif label == "ScanStringFilter1":
-				self.set_value("StringFilter1Start", pmem.memory_read(mem_offset))
-				self.set_value("StringFilter1Return", pmem.memory_read(mem_offset + 0x5))
-				print(f"StringFilter1Start set to {mem_offset:X}")
-				print(f"StringFilter1Return set to {mem_offset + 0x5:X}")
-			
-			elif label == "ScanStringFilter2":
-				self.set_value("StringFilter2Start", pmem.memory_read(mem_offset))
-				self.set_value("StringFilter2Return", pmem.memory_read(mem_offset + 0x5))
-				print(f"StringFilter2Start set to {mem_offset:X}")
-				print(f"StringFilter2Return set to {mem_offset + 0x5:X}")
-			
-			elif label == "ScanStringLog":
-				self.set_value("StringLogStart", pmem.memory_read(mem_offset))
-				print(f"StringLogStart set to {mem_offset:X}")
+		self.saved_values["MyID"] = pmem.memory_read(self._get_scanned_label_address("ScanMyID", -3))
+		print(f"MyID -> 0x{self.saved_values["MyID"]:08X}")
+		
+		self.saved_values["CurrentTarget"] = pmem.memory_read(self._get_scanned_label_address("ScanCurrentTarget", -14))
+		print(f"CurrentTarget -> 0x{self.saved_values["CurrentTarget"]:08X}")
+		
+		self.saved_values["PacketLocation"] = pmem.memory_read(self._get_scanned_label_address("ScanBaseOffset", 11))
+		print(f"PacketLocation -> 0x{self.saved_values["PacketLocation"]:08X}")
+		
+		self.saved_values["Ping"] = pmem.memory_read(self._get_scanned_label_address("ScanPing", -0x14))
+		print(f"Ping -> 0x{self.saved_values["Ping"]:08X}")
+		
+		self.saved_values["MapID"] = pmem.memory_read(self._get_scanned_label_address("ScanMapID", 28))
+		print(f"MapID -> 0x{self.saved_values["MapID"]:08X}")
+		
+		self.saved_values["MapLoading"] = pmem.memory_read(self._get_scanned_label_address("ScanMapLoading", 0xB))
+		print(f"MapLoading -> 0x{self.saved_values["MapLoading"]:08X}")
+		
+		self.saved_values["LoggedIn"] = pmem.memory_read(self._get_scanned_label_address("ScanLoggedIn", 3))
+		print(f"LoggedIn -> 0x{self.saved_values["LoggedIn"]:08X}")
+		
+		self.saved_values["Language"] = pmem.memory_read(self._get_scanned_label_address("ScanMapInfo", 11) + 0xC)
+		print(f"Language -> 0x{self.saved_values["Language"]:08X}")
+		self.saved_values["Region"] = self.saved_values["Language"] + 4
+		print(f"Region -> 0x{self.saved_values["Language"]:08X}")
+		
+		self.saved_values["SkillBase"] = pmem.memory_read(self._get_scanned_label_address("ScanSkillBase", 8))
+		print(f"SkillBase -> 0x{self.saved_values["SkillBase"]:08X}")
+		
+		self.saved_values["SkillTimer"] = pmem.memory_read(self._get_scanned_label_address("ScanSkillTimer", -3))
+		print(f"SkillTimer -> 0x{self.saved_values["SkillTimer"]:08X}")
+		
+		self.saved_values["ZoomStill"] = self._get_scanned_label_address("ScanZoomStill", 0x33)
+		print(f"ZoomStill -> 0x{self.saved_values["ZoomStill"]:08X}")
+		
+		self.saved_values["ZoomMoving"] = self._get_scanned_label_address("ScanZoomMoving", 0x21)
+		print(f"ZoomMoving -> 0x{self.saved_values["ZoomMoving"]:08X}")
+		
+		self.saved_values["ChangeStatusFunction"] = pmem.memory_read(self._get_scanned_label_address("ScanChangeStatusFunction", 0x23))
+		print(f"ChangeStatusFunction -> 0x{self.saved_values["ChangeStatusFunction"]:08X}")
+		
+		self.saved_values["CharSlots"] = pmem.memory_read(self._get_scanned_label_address("ScanCharSlots", 0x16))
+		print(f"CharSlots -> 0x{self.saved_values["CharSlots"]:08X}")
+		
+		self.saved_values["MainStart"] = self._get_scanned_label_address("ScanEngine", -0x22)
+		print(f"MainStart -> 0x{self.saved_values["MainStart"]:08X}")
+		self.saved_values["MainReturn"] = self.saved_values["MainStart"] + 5
+		print(f"MainReturn -> {self.saved_values["MainReturn"]}")
+		
+		self.saved_values["TargetLogStart"] = self._get_scanned_label_address("ScanTargetLog", 1)
+		print(f"TargetLogStart -> 0x{self.saved_values["TargetLogStart"]:08X}")
+		self.saved_values["TargetLogReturn"] = self.saved_values["TargetLogStart"] + 5
+		print(f"TargetLogReturn -> 0x{self.saved_values["TargetLogReturn"]:08X}")
+		
+		self.saved_values["SkillLogStart"] = self._get_scanned_label_address("ScanSkillLog", 1)
+		print(f"SkillLogStart -> 0x{self.saved_values["SkillLogStart"]:08X}")
+		self.saved_values["SkillLogReturn"] = self.saved_values["SkillLogStart"] + 5
+		print(f"SkillLogReturn -> 0x{self.saved_values["SkillLogReturn"]:08X}")
+		
+		self.saved_values["SkillCompleteLogStart"] = self._get_scanned_label_address("ScanSkillCompleteLog", -0x4)
+		print(f"SkillCompleteLogStart -> 0x{self.saved_values["SkillCompleteLogStart"]:08X}")
+		self.saved_values["SkillCompleteLogReturn"] = self.saved_values["SkillCompleteLogStart"] + 5
+		print(f"SkillCompleteLogReturn -> 0x{self.saved_values["SkillCompleteLogReturn"]:08X}")
+		
+		self.saved_values["SkillCancelLogStart"] = self._get_scanned_label_address("ScanSkillCancelLog", 0x5)
+		print(f"SkillCancelLogStart -> 0x{self.saved_values["SkillCancelLogStart"]:08X}")
+		self.saved_values["SkillCancelLogReturn"] = self.saved_values["SkillCancelLogStart"] + 6
+		print(f"SkillCancelLogReturn -> 0x{self.saved_values["SkillCancelLogReturn"]:08X}")
+		
+		self.saved_values["ChatLogStart"] = self._get_scanned_label_address("ScanChatLog", 0x12)
+		print(f"ChatLogStart -> 0x{self.saved_values["ChatLogStart"]:08X}")
+		self.saved_values["ChatLogReturn"] = self.saved_values["ChatLogStart"]
+		print(f"ChatLogReturn -> 0x{self.saved_values["ChatLogReturn"]:08X}")
+		
+		self.saved_values["TraderHookStart"] = self._get_scanned_label_address("ScanTraderHook", -0x2F)
+		print(f"TraderHookStart -> 0x{self.saved_values["TraderHookStart"]:08X}")
+		self.saved_values["TraderHookReturn"] = self.saved_values["TraderHookStart"] + 5
+		print(f"TraderHookReturn -> 0x{self.saved_values["TraderHookReturn"]:08X}")
+		
+		self.saved_values["DialogLogStart"] = self._get_scanned_label_address("ScanDialogLog", -0x4)
+		print(f"DialogLogStart -> 0x{self.saved_values["DialogLogStart"]:08X}")
+		self.saved_values["DialogLogReturn"] = self.saved_values["DialogLogStart"] + 5
+		print(f"DialogLogReturn -> 0x{self.saved_values["DialogLogReturn"]:08X}")
+		
+		self.saved_values["StringFilter1Start"] = self._get_scanned_label_address("ScanStringFilter1", -0x5)
+		print(f"StringFilter1Start -> 0x{self.saved_values["StringFilter1Start"]:08X}")
+		self.saved_values["StringFilter1Return"] = self.saved_values["StringFilter1Start"] + 5
+		print(f"StringFilter1Return -> 0x{self.saved_values["StringFilter1Return"]:08X}")
+		
+		self.saved_values["StringFilter2Start"] = self._get_scanned_label_address("ScanStringFilter2", -0x5)
+		print(f"StringFilter2Start -> 0x{self.saved_values["StringFilter2Start"]:08X}")
+		self.saved_values["StringFilter2Return"] = self.saved_values["StringFilter2Start"] + 5
+		print(f"StringFilter2Return -> 0x{self.saved_values["StringFilter2Return"]:08X}")
+		
+		self.saved_values["StringLogStart"] = self._get_scanned_label_address("ScanStringLog", 0x16)
+		print(f"StringLogStart -> 0x{self.saved_values["StringLogStart"]:08X}")
+		
+		self.saved_values["LoadFinishedStart"] = self._get_scanned_label_address("ScanLoadFinished", 0x1)
+		print(f"LoadFinishedStart -> 0x{self.saved_values["LoadFinishedStart"]:08X}")
+		self.saved_values["LoadFinishedReturn"] = self._get_scanned_label_address("ScanLoadFinished", 0x6)
+		print(f"LoadFinishedReturn -> 0x{self.saved_values["LoadFinishedReturn"]:08X}")
+		
+		self.saved_values["PostMessage"] = pmem.memory_read(self._get_scanned_label_address("ScanPostMessage", 0xB))
+		print(f"PostMessage -> 0x{self.saved_values["PostMessage"]:08X}")
+		
+		self.saved_values["Sleep"] = pmem.memory_read(pmem.memory_read(self.scan_buffer.labels["ScanSleep"] + self.scan_base + 8) + 3)
+		print(f"Sleep -> 0x{self.saved_values["Sleep"]:08X}")
+		
+		self.saved_values["SalvageFunction"] = self._get_scanned_label_address("ScanSalvageFunction", -0xA)
+		print(f"SalvageFunction -> 0x{self.saved_values["SalvageFunction"]:08X}")
+		
+		self.saved_values["SalvageGlobal"] = pmem.memory_read(self._get_scanned_label_address("ScanSalvageGlobal", 1) - 0x4)
+		print(f"SalvageGlobal -> 0x{self.saved_values["SalvageGlobal"]:08X}")
+		
+		self.saved_values["IncreaseAttributeFunction"] = self._get_scanned_label_address("ScanIncreaseAttributeFunction", -0x5A)
+		print(f"IncreaseAttributeFunction -> 0x{self.saved_values["IncreaseAttributeFunction"]:08X}")
+		
+		self.saved_values["DecreaseAttributeFunction"] = self._get_scanned_label_address("ScanDecreaseAttributeFunction", 0x19)
+		print(f"DecreaseAttributeFunction -> 0x{self.saved_values["DecreaseAttributeFunction"]:08X}")
+		
+		self.saved_values["MoveFunction"] = self._get_scanned_label_address("ScanMoveFunction", 0x1)
+		print(f"MoveFunction -> 0x{self.saved_values["MoveFunction"]:08X}")
+		
+		self.saved_values["UseSkillFunction"] = self._get_scanned_label_address("ScanUseSkillFunction", -0x125)
+		print(f"UseSkillFunction -> 0x{self.saved_values["UseSkillFunction"]:08X}")
+		
+		self.saved_values["ChangeTargetFunction"] = self._get_scanned_label_address("ScanChangeTargetFunction", -0x86) + 1
+		print(f"ChangeTargetFunction -> 0x{self.saved_values["ChangeTargetFunction"]:08X}")
+		
+		self.saved_values["WriteChatFunction"] = self._get_scanned_label_address("ScanWriteChatFunction", -0x3D)
+		print(f"WriteChatFunction -> 0x{self.saved_values["WriteChatFunction"]:08X}")
+		
+		self.saved_values["SellItemFunction"] = self._get_scanned_label_address("ScanSellItemFunction", -0x55)
+		print(f"SellItemFunction -> 0x{self.saved_values["SellItemFunction"]:08X}")
+		
+		self.saved_values["PacketSendFunction"] = self._get_scanned_label_address("ScanPacketSendFunction", -0x50)
+		print(f"PacketSendFunction -> 0x{self.saved_values["PacketSendFunction"]:08X}")
+		
+		self.saved_values["ActionBase"] = self._get_scanned_label_address("ScanActionBase", -0x3)
+		print(f"ActionBase -> 0x{self.saved_values["ActionBase"]:08X}")
+		
+		self.saved_values["ActionFunction"] = self._get_scanned_label_address("ScanActionFunction", -0x3)
+		print(f"ActionFunction -> 0x{self.saved_values["ActionFunction"]:08X}")
+		
+		self.saved_values["UseHeroSkillFunction"] = self._get_scanned_label_address("ScanUseHeroSkillFunction", -0x59)
+		print(f"UseHeroSkillFunction -> 0x{self.saved_values["UseHeroSkillFunction"]:08X}")
+		
+		self.saved_values["BuyItemBase"] = pmem.memory_read(self._get_scanned_label_address("ScanBuyItemBase", 0xF))
+		print(f"BuyItemBase -> 0x{self.saved_values["BuyItemBase"]:08X}")
+		
+		self.saved_values["TransactionFunction"] = self._get_scanned_label_address("ScanTransactionFunction", -0x7E)
+		print(f"TransactionFunction -> 0x{self.saved_values["TransactionFunction"]:08X}")
+		
+		self.saved_values["RequestQuoteFunction"] = self._get_scanned_label_address("ScanRequestQuoteFunction", -0x34)
+		print(f"RequestQuoteFunction -> 0x{self.saved_values["RequestQuoteFunction"]:08X}")
+		
+		self.saved_values["TraderFunction"] = self._get_scanned_label_address("ScanTraderFunction", -0x1E)
+		print(f"TraderFunction -> 0x{self.saved_values["TraderFunction"]:08X}")
+		
+		self.saved_values["ClickToMoveFix"] = self._get_scanned_label_address("ScanClickToMoveFix", 0x1)
+		print(f"ClickToMoveFix -> 0x{self.saved_values["ClickToMoveFix"]:08X}")
+		
+		self.saved_values["ChangeStatusFunction"] = self._get_scanned_label_address("ScanChangeStatusFunction", 0x1)
+		print(f"ChangeStatusFunction -> 0x{self.saved_values["ChangeStatusFunction"]:08X}")
 
-			else:
-				self.set_value(label_final, pmem.memory_read(mem_offset))
-				print(f"{label_final} set to {mem_offset:X}")
 
-	
 	def _read_modify_values(self):
 		"""Reads known offsets from the modify base address and updates self.saved_values with the labels"""
-		pmem = self.proc_memory
-		base = self.modify_base
-
-		for label in self.scan_buffer.labels:
-			offset = self.modify_buffer[label]
-			resolved_addr = self.modify_base + offset
-			self.saved_values[label] = resolved_addr
-			print(f"Saved {label} with address -> {resolved_addr:X}")
+		pass
 
 
 	def read_value_ptr(self, label: str, offsets: list[int]) -> int:
@@ -252,122 +321,10 @@ class Core:
 		print(f"SCAN_BASE_ADDR_CMP -> {scan_base_addr_cmp}")
 
 		asm.add_label("MainModPtr/4")
-		asm.add_label("ScanBasePointer:")
-		asm.add_pattern(function_signatures["ScanBasePointer"])
-		asm.add_label("ScanAgentBase:")
-		asm.add_pattern(function_signatures["ScanAgentBase"])
-		asm.add_label("ScanAgentBasePointer:")
-		asm.add_pattern(function_signatures["ScanAgentBasePointer"])
-		# asm.add_label("ScanAgentArray:")
-		# asm.add_pattern(function_signatures["ScanAgentArray"])
-		asm.add_label("ScanCurrentTarget:")
-		asm.add_pattern(function_signatures["ScanCurrentTarget"])
-		asm.add_label("ScanMyID:")
-		asm.add_pattern(function_signatures["ScanMyId"])
-		asm.add_label("ScanEngine:")
-		asm.add_pattern(function_signatures["ScanEngine"])
-		asm.add_label("ScanRenderFunc:")
-		asm.add_pattern(function_signatures["ScanRenderFunc"])
-		asm.add_label("ScanLoadFinished:")
-		asm.add_pattern(function_signatures["ScanLoadFinished"])
-		asm.add_label("ScanPostMessage:")
-		asm.add_pattern(function_signatures["ScanPostMessage"])
-		asm.add_label("ScanTargetLog:")
-		asm.add_pattern(function_signatures["ScanTargetLog"])
-		asm.add_label("ScanChangeTargetFunction:")
-		asm.add_pattern(function_signatures["ScanChangeTargetFunction"])
-		asm.add_label("ScanMoveFunction:")
-		asm.add_pattern(function_signatures["ScanMoveFunction"])
-		asm.add_label("ScanPing:")
-		asm.add_pattern(function_signatures["ScanPing"])
-		asm.add_label("ScanMapID:")
-		asm.add_pattern(function_signatures["ScanMapID"])
-		asm.add_label("ScanMapLoading:")
-		asm.add_pattern(function_signatures["ScanMapLoading"])
-		asm.add_label("ScanLoggedIn:")
-		asm.add_pattern(function_signatures["ScanLoggedIn"])
-		asm.add_label("ScanRegion:")
-		asm.add_pattern(function_signatures["ScanRegion"])
-		asm.add_label("ScanMapInfo:")
-		asm.add_pattern(function_signatures["ScanMapInfo"])
-		asm.add_label("ScanLanguage:")
-		asm.add_pattern(function_signatures["ScanLanguage"])
-		asm.add_label("ScanUseSkillFunction:")
-		asm.add_pattern(function_signatures["ScanUseSkillFunction"])
-		asm.add_label("ScanPacketSendFunction:")
-		asm.add_pattern(function_signatures["ScanPacketSendFunction"])
-		asm.add_label("ScanBaseOffset:")
-		asm.add_pattern(function_signatures["ScanBaseOffset"])
-		asm.add_label("ScanWriteChatFunction:")
-		asm.add_pattern(function_signatures["ScanWriteChatFunction"])
-		asm.add_label("ScanSkillLog:")
-		asm.add_pattern(function_signatures["ScanSkillLog"])
-		asm.add_label("ScanSkillCompleteLog:")
-		asm.add_pattern(function_signatures["ScanSkillCompleteLog"])
-		asm.add_label("ScanSkillCancelLog:")
-		asm.add_pattern(function_signatures["ScanSkillCancelLog"])
-		asm.add_label("ScanChatLog:")
-		asm.add_pattern(function_signatures["ScanChatLog"])
-		asm.add_label("ScanSellItemFunction:")
-		asm.add_pattern(function_signatures["ScanSellItemFunction"])
-		asm.add_label("ScanStringLog:")
-		asm.add_pattern(function_signatures["ScanStringLog"])
-		asm.add_label("ScanStringFilter1:")
-		asm.add_pattern(function_signatures["ScanStringFilter1"])
-		asm.add_label("ScanStringFilter2:")
-		asm.add_pattern(function_signatures["ScanStringFilter2"])
-		asm.add_label("ScanActionFunction:")
-		asm.add_pattern(function_signatures["ScanActionFunction"])
-		asm.add_label("ScanActionBase:")
-		asm.add_pattern(function_signatures["ScanActionBase"])
-		asm.add_label("ScanSkillBase:")
-		asm.add_pattern(function_signatures["ScanSkillBase"])
-		asm.add_label("ScanUseHeroSkillFunction:")
-		asm.add_pattern(function_signatures["ScanUseHeroSkillFunction"])
-		asm.add_label("ScanTransactionFunction:")
-		asm.add_pattern(function_signatures["ScanTransactionFunction"])
-		asm.add_label("ScanBuyItemFunction:")
-		asm.add_pattern(function_signatures["ScanBuyItemFunction"])
-		asm.add_label("ScanBuyItemBase:")
-		asm.add_pattern(function_signatures["ScanBuyItemBase"])
-		asm.add_label("ScanRequestQuoteFunction:")
-		asm.add_pattern(function_signatures["ScanRequestQuoteFunction"])
-		asm.add_label("ScanTraderFunction:")
-		asm.add_pattern(function_signatures["ScanTraderFunction"])
-		asm.add_label("ScanTraderHook:")
-		asm.add_pattern(function_signatures["ScanTraderHook"])
-		asm.add_label("ScanSleep:")
-		asm.add_pattern(function_signatures["ScanSleep"])
-		asm.add_label("ScanSalvageFunction:")
-		asm.add_pattern(function_signatures["ScanSalvageFunction"])
-		asm.add_label("ScanSalvageGlobal:")
-		asm.add_pattern(function_signatures["ScanSalvageGlobal"])
-		asm.add_label("ScanIncreaseAttributeFunction:")
-		asm.add_pattern(function_signatures["ScanIncreaseAttributeFunction"])
-		asm.add_label("ScanDecreaseAttributeFunction:")
-		asm.add_pattern(function_signatures["ScanDecreaseAttributeFunction"])
-		asm.add_label("ScanSkillTimer:")
-		asm.add_pattern(function_signatures["ScanSkillTimer"])
-		asm.add_label("ScanClickToMoveFix:")
-		asm.add_pattern(function_signatures["ScanClickToMoveFix"])
-		asm.add_label("ScanZoomStill:")
-		asm.add_pattern(function_signatures["ScanZoomStill"])
-		asm.add_label("ScanZoomMoving:")
-		asm.add_pattern(function_signatures["ScanZoomMoving"])
-		asm.add_label("ScanBuildNumber:")
-		asm.add_pattern(function_signatures["ScanBuildNumber"])
-		asm.add_label("ScanChangeStatusFunction:")
-		asm.add_pattern(function_signatures["ScanChangeStatusFunction"])
-		asm.add_label("ScanCharslots:")
-		asm.add_pattern(function_signatures["ScanCharSlots"])
-		asm.add_label("ScanReadChatFunction:")
-		asm.add_pattern(function_signatures["ScanReadChatFunction"])
-		asm.add_label("ScanDialogLog:")
-		asm.add_pattern(function_signatures["ScanDialogLog"])
-		asm.add_label("ScanTradeHack:")
-		asm.add_pattern(function_signatures["ScanTradeHack"])
-		asm.add_label("ScanClickCoords:")
-		asm.add_pattern(function_signatures["ScanClickCoords"])
+		for label in scanner_patterns:
+			pattern = scanner_patterns[label][0]
+			asm.add_label(f"Scan{label}")
+			asm.add_pattern(pattern)
 
 		# Scan Process function - scans GW for function patterns and adds resulting addresses to addresses for later retrieval
 		asm.add_label("ScanProc:")
@@ -443,50 +400,73 @@ class Core:
 		asm = Assembler(self.modify_buffer)
 		self.modify_assembler = asm
 		# CreateData()
-		asm.add_label("CallBackHandle/4")
 		asm.add_label("QueueCounter/4")
-		asm.add_label("SkillLogCounter/4")
-		asm.add_label("ChatLogCounter/4")
-		asm.add_label("ChatLogLastMsg/4")
-		asm.add_label("MapIsLoaded/4")
-		asm.add_label("NextStringType/4")
-		asm.add_label("EnsureEnglish/4")
 		asm.add_label("TraderQuoteID/4")
 		asm.add_label("TraderCostID/4")
 		asm.add_label("TraderCostValue/4")
 		asm.add_label("DisableRendering/4")
-		asm.add_label(f"QueueBase/{256 * self.get_value("QueueSize")}")
-		asm.add_label(f"TargetLogBase/{4 * self.get_value("TargetLogSize")}")
-		asm.add_label(f"SkillLogBase/{16 * self.get_value("SkillLogSize")}")
-		asm.add_label(f"StringLogBase/{256 * self.get_value("StringLogSize")}")
-		asm.add_label(f"ChatLogBase/{512 * self.get_value("ChatLogSize")}")
-		asm.add_label("LastDialogID/4")
-		asm.add_label("AgentCopyCount/4")
+		asm.add_label(f"QueueBase/{256 * SIZE_QUEUE}")
 		asm.add_label(f"AgentCopyBase/{0x1C0 * 256}")
+
 
 		# CreateMain
 		asm.add_label("MainProc:")
 		# asm.add_instruction("nop x")
 		asm.add_instruction("pushad")
-		asm.add_instruction("mov {eax},dword[<EnsureEnglish>]")
-		asm.add_instruction("test {eax},{eax}")
-		asm.add_instruction("jz [<MainMain>]")
-		asm.add_instruction("mov {ecx},dword[<BasePointer>]")
-		asm.add_instruction("mov {ecx},dword[{ecx}+18]")
-		asm.add_instruction("mov {ecx},dword[{ecx}+18]")
-		asm.add_instruction("mov {ecx},dword[{ecx}+194]")
-		asm.add_instruction("mov {al},byte[{ecx}+4f]")
-		asm.add_instruction("cmp {al},f")
-		asm.add_instruction("ja [<MainMain>]")
-		asm.add_instruction("mov {ecx},dword[{ecx}+4c]")
-		asm.add_instruction("mov {al},byte[{ecx}+3f]")
-		asm.add_instruction("cmp {al},f")
-		asm.add_instruction("ja [<MainMain>]")
-		asm.add_instruction("mov {eax},dword[{ecx}+40]")
-		asm.add_instruction("test {eax},{eax}")
-		asm.add_instruction("jz [<MainMain>]")
+		asm.add_instruction("push {eax}")
+		asm.add_instruction("push ebx")
 
-		asm.add_label("MainMain:")
+		asm.add_instruction(f"mov {{eax}},dword[{self.get_value('BasePointer')}]")
+		asm.add_instruction("test {eax},{eax}")
+		asm.add_instruction("jz [<RegularFlow>]")
+		asm.add_instruction("mov {eax},dword[{eax}]")
+		asm.add_instruction("test {eax},{eax}")
+		asm.add_instruction("jz [<RegularFlow>]")
+		asm.add_instruction("mov {eax},dword[{eax}+18]")
+		asm.add_instruction("test {eax},{eax}")
+		asm.add_instruction("jz [<RegularFlow>]")
+		asm.add_instruction("mov {eax},dword[{eax}+44]")
+		asm.add_instruction("test {eax},{eax}")
+		asm.add_instruction("jz [<RegularFlow>]")
+		asm.add_instruction("mov {ebx},dword[{eax}+19C]")
+		asm.add_instruction("test {ebx},{ebx}")
+		asm.add_instruction("jz [<RegularFlow>]")
+		asm.add_instruction("mov {eax},dword[{eax}+198]")
+		asm.add_instruction("cmp {eax},0")
+		asm.add_instruction("je [<HandleCase>]")
+		asm.add_instruction("mov {ebx},{eax}")
+		asm.add_instruction("imul {ebx},{ebx},7C")
+		asm.add_instruction(f"add {{ebx}},dword[{self.get_value('Environment')}]")
+		asm.add_instruction("test {ebx},{ebx}")
+		asm.add_instruction("jz [<RegularFlow>]")
+		asm.add_instruction("mov {ebx},dword[{ebx}+10]")
+		asm.add_instruction("test {ebx},40001")
+		asm.add_instruction("jz [<RegularFlow>]")
+
+		asm.add_label("HandleCase:")
+		asm.add_instruction("pop {ebx}")
+		asm.add_instruction("pop {eax}")
+		asm.add_instruction("mov {eax},dword[<QueueCounter>]")
+		asm.add_instruction("mov ecx,{eax}")
+		asm.add_instruction("shl {eax},8")
+		asm.add_instruction("add {eax},[<QueueBase>]")
+		asm.add_instruction("mov {ebx},dword[{eax}]")
+		asm.add_instruction("test {ebx},{ebx}")
+		asm.add_instruction("jz [<MainExit>]")
+		asm.add_instruction("mov dword[{eax}],0")
+		asm.add_instruction("mov {eax},ecx")
+		asm.add_instruction("inc {eax}")
+		asm.add_instruction("cmp {eax},[<QueueSize>]")
+		asm.add_instruction("jnz [<SubSkipReset>]")
+		asm.add_instruction("xor {eax},{eax}")
+
+		asm.add_label("SubSkipReset:")
+		asm.add_instruction("mov dword[<QueueCounter>],{eax}")
+		asm.add_instruction("jmp [<MainExit>]")
+
+		asm.add_label("RegularFlow:")
+		asm.add_instruction("pop {ebx}")
+		asm.add_instruction("pop {eax}")
 		asm.add_instruction("mov {eax},dword[<QueueCounter>]")
 		asm.add_instruction("mov {ecx},{eax}")
 		asm.add_instruction("shl {eax},8")
@@ -497,7 +477,7 @@ class Core:
 		asm.add_instruction("push {ecx}")
 		asm.add_instruction("mov dword[{eax}],0")
 		asm.add_instruction("jmp {ebx}")
-		
+
 		asm.add_label("CommandReturn:")
 		asm.add_instruction("pop {eax}")
 		asm.add_instruction("inc {eax}")
@@ -514,8 +494,8 @@ class Core:
 		asm.add_instruction("fld st(0),dword[{ebp}+8]")
 		asm.add_instruction("ljmp [<MainReturn>]")
 
-		# TraderHook
-		asm.add_label("TraderHookProc:")
+		# TraderProc
+		asm.add_label("TraderProc:")
 		asm.add_instruction("push {eax}")
 		asm.add_instruction("mov {eax},dword[{ebx}+28] -> 8b 43 28")
 		asm.add_instruction("mov {eax},[{eax}] -> 8b 00")
@@ -536,50 +516,7 @@ class Core:
 		asm.add_label("TraderSkipReset:")
 		asm.add_instruction("mov dword[<TraderQuoteID>],{eax}")
 		asm.add_instruction("pop {eax}")
-		asm.add_instruction("ljmp [<TraderHookReturn>]")
-
-		# StringLog
-		asm.add_label("StringLogProc:")
-		asm.add_instruction("pushad")
-		asm.add_instruction("mov {eax},dword[<NextStringType>]")
-		asm.add_instruction("test {eax},{eax}")
-		asm.add_instruction("jz [<StringLogExit>]")
-		asm.add_instruction("cmp {eax},1")
-		asm.add_instruction("jnz [<StringLogFilter2>]")
-		asm.add_instruction("mov {eax},dword[{ebp}+37c]")
-		asm.add_instruction("jmp [<StringLogRangeCheck>]")
-
-		asm.add_label("StringLogFilter2:")
-		asm.add_instruction("cmp {eax},2")
-		asm.add_instruction("jnz [<StringLogExit>]")
-		asm.add_instruction("mov {eax},dword[{ebp}+338]")
-
-		asm.add_label("StringLogRangeCheck:")
-		asm.add_instruction("mov dword[<NextStringType>],0")
-		asm.add_instruction("cmp {eax},0")
-		asm.add_instruction("jbe [<StringLogExit>]")
-		asm.add_instruction("cmp {eax},[<StringLogSize>]")
-		asm.add_instruction("jae [<StringLogExit>]")
-		asm.add_instruction("shl {eax},8")
-		asm.add_instruction("add {eax},[<StringLogBase>]")
-		asm.add_instruction("xor {ebx},{ebx}")
-
-		asm.add_label("StringLogCopyLoop:")
-		asm.add_instruction("mov {dx},word[{ecx}]")
-		asm.add_instruction("mov word[{eax}],{dx}")
-		asm.add_instruction("add {ecx},2")
-		asm.add_instruction("add {eax},2")
-		asm.add_instruction("inc {ebx}")
-		asm.add_instruction("cmp {ebx},80")
-		asm.add_instruction("jz [<StringLogExit>]")
-		asm.add_instruction("test {dx},{dx}")
-		asm.add_instruction("jnz [<StringLogCopyLoop>]")
-
-		asm.add_label("StringLogExit:")
-		asm.add_instruction("popad")
-		asm.add_instruction("mov {esp},{ebp}")
-		asm.add_instruction("pop {ebp}")
-		asm.add_instruction("retn 10")
+		asm.add_instruction("ljmp [<TraderReturn>]")
 
 		# CreateRenderingMod
 		asm.add_label("RenderingModProc:")
@@ -588,6 +525,45 @@ class Core:
 		asm.add_instruction("ljmp [<RenderingModReturn>]")
 
 		# CreateCommands
+		asm.add_label("CommandPacketSend:")
+		asm.add_instruction("lea {edx},dword[{eax}+4]")
+		asm.add_instruction("push {edx}")
+		asm.add_instruction("mov {ebx},11C")
+		asm.add_instruction("push {ebx}")
+		asm.add_instruction("mov {eax},dword[<PacketLocation>]")
+		asm.add_instruction("push {eax}")
+		asm.add_instruction("call [<PacketSend>]")
+		asm.add_instruction("pop {eax}")
+		asm.add_instruction("pop {ebx}")
+		asm.add_instruction("pop {edx}")
+		asm.add_instruction("ljmp [<CommandReturn>]")
+
+		asm.add_label("CommandAction:")
+		asm.add_instruction(f"mov {{ecx}},dword[{self.get_value('ActionBase')}]")
+		asm.add_instruction("mov {ecx},dword[{ecx}+c]")
+		asm.add_instruction("add {ecx},A0")
+		asm.add_instruction("push 0")
+		asm.add_instruction("add {eax},4")
+		asm.add_instruction("push {eax}")
+		asm.add_instruction("push dword[{eax}+4]")
+		asm.add_instruction("mov {edx},0")
+		asm.add_instruction(f"call {self.get_value('Action')}")
+		asm.add_instruction("ljmp [<CommandReturn>]")
+
+		asm.add_label("CommandSendChat:")
+		asm.add_instruction("lea {edx},dword[{eax}+4]")
+		asm.add_instruction("push {edx}")
+		asm.add_instruction("mov {ebx},11c")
+		asm.add_instruction("push {ebx}")
+		asm.add_instruction(f"mov {{eax}},dword[{self.get_value('PacketLocation')}]")
+		asm.add_instruction("push {eax}")
+		asm.add_instruction(f"call {self.get_value('PacketSend')}")
+		asm.add_instruction("pop {eax}")
+		asm.add_instruction("pop {ebx}")
+		asm.add_instruction("pop {edx}")
+		asm.add_instruction("ljmp [<CommandReturn>]")
+
+		# Skills
 		asm.add_label("CommandUseSkill:")
 		asm.add_instruction("mov {ecx},dword[{eax}+C]")
 		asm.add_instruction("push {ecx}")
@@ -598,72 +574,101 @@ class Core:
 		asm.add_instruction("push {edx}")
 		asm.add_instruction("mov {eax},dword[<MyID>]")
 		asm.add_instruction("push {eax}")
-		asm.add_instruction("call [<UseSkillFunction>]")
+		asm.add_instruction(f"call {self.get_value('UseSkill')}")
 		asm.add_instruction("pop {eax}")
 		asm.add_instruction("pop {edx}")
 		asm.add_instruction("pop {ebx}")
 		asm.add_instruction("pop {ecx}")
 		asm.add_instruction("ljmp [<CommandReturn>]")
 
-		asm.add_label("CommandMove:")
-		asm.add_instruction("lea {eax},dword[{eax}+4]")
-		asm.add_instruction("push {eax}")
-		asm.add_instruction("call [<MoveFunction>]")
-		asm.add_instruction("pop {eax}")
+		asm.add_label("CommandUseHeroSkill:")
+		asm.add_instruction("mov {ecx},dword[{eax}+8]")
+		asm.add_instruction("push {ecx}")
+		asm.add_instruction("mov {ecx},dword[{eax}+c]")
+		asm.add_instruction("push {ecx}")
+		asm.add_instruction("mov {ecx},dword[{eax}+4]")
+		asm.add_instruction("push {ecx}")
+		asm.add_instruction(f"call {self.get_value('UseHeroSkill')}")
+		asm.add_instruction("add {esp},C")
 		asm.add_instruction("ljmp [<CommandReturn>]")
 
-		asm.add_label("CommandChangeTarget:")
-		asm.add_instruction("xor {edx},{edx}")
-		asm.add_instruction("push {edx}")
+		asm.add_label("CommandPlayerStatus:")
 		asm.add_instruction("mov {eax},dword[{eax}+4]")
 		asm.add_instruction("push {eax}")
-		asm.add_instruction("call [<ChangeTargetFunction>]")
+		asm.add_instruction(f"call {self.get_value('PlayerStatus')}")
 		asm.add_instruction("pop {eax}")
-		asm.add_instruction("pop {edx}")
 		asm.add_instruction("ljmp [<CommandReturn>]")
 
-		asm.add_label("CommandPacketSend:")
-		asm.add_instruction("lea {edx},dword[{eax}+8]")
+		asm.add_label("CommandAddFriend:")
+		asm.add_instruction("mov {ecx},dword[{eax}+C]")
+		asm.add_instruction("push {ecx}")
+		asm.add_instruction("mov {edx},dword[{eax}+8]")
 		asm.add_instruction("push {edx}")
-		asm.add_instruction("mov {ebx},dword[{eax}+4]")
-		asm.add_instruction("push {ebx}")
-		asm.add_instruction("mov {eax},dword[<PacketLocation>]")
-		asm.add_instruction("push {eax}")
-		asm.add_instruction("call [<PacketSendFunction>]")
-		asm.add_instruction("pop {eax}")
-		asm.add_instruction("pop {ebx}")
+		asm.add_instruction("mov {ecx},dword[{eax}+4]")
+		asm.add_instruction("push {ecx}")
+		asm.add_instruction(f"call {self.get_value('AddFriend')}")
+		asm.add_instruction("add {esp},C")
+		asm.add_instruction("ljmp [<CommandReturn>]")
+
+		asm.add_label("CommandRemoveFriend:")
+		asm.add_instruction("mov {ecx},dword[{eax}+18]")
+		asm.add_instruction("push {ecx}")
+		asm.add_instruction("mov {edx},dword[{eax}+14]")
+		asm.add_instruction("push {edx}")
+		asm.add_instruction("lea {ecx},dword[{eax}+4]")
+		asm.add_instruction("push {ecx}")
+		asm.add_instruction(f"call {self.get_value('RemoveFriend')}")
+		asm.add_instruction("add {esp},C")
+		asm.add_instruction("ljmp [<CommandReturn>]")
+
+		asm.add_label("CommandIncreaseAttribute:")
+		asm.add_instruction("mov {edx},dword[{eax}+4]")
+		asm.add_instruction("push {edx}")
+		asm.add_instruction("mov {ecx},dword[{eax}+8]")
+		asm.add_instruction("push {ecx}")
+		asm.add_instruction(f"call {self.get_value('IncreaseAttribute')}")
+		asm.add_instruction("add {esp},8")
+		asm.add_instruction("ljmp [<CommandReturn>]")
+
+		asm.add_label("CommandDecreaseAttribute:")
+		asm.add_instruction("mov {edx},dword[{eax}+4]")
+		asm.add_instruction("push {edx}")
+		asm.add_instruction("mov {ecx},dword[{eax}+8]")
+		asm.add_instruction("push {ecx}")
+		asm.add_instruction("call [<DecreaseAttributeFunction>]")
+		asm.add_instruction("pop {ecx}")
 		asm.add_instruction("pop {edx}")
 		asm.add_instruction("ljmp [<CommandReturn>]")
 
 		asm.add_label("CommandChangeStatus:")
 		asm.add_instruction("mov {eax},dword[{eax}+4]")
 		asm.add_instruction("push {eax}")
-		asm.add_instruction("call [<ChangeStatusFunction>]")
+		asm.add_instruction(f"call {self.get_value('ChangeStatus')}")
 		asm.add_instruction("pop {eax}")
 		asm.add_instruction("ljmp [<CommandReturn>]")
 
-		asm.add_label("CommandWriteChat:")
-		asm.add_instruction("push 0")
-		asm.add_instruction("add {eax},4")
-		asm.add_instruction("push {eax}")
-		asm.add_instruction("call [<WriteChatFunction>]")
-		asm.add_instruction("add {esp},8")
-		asm.add_instruction("ljmp [<CommandReturn>]")
-
 		asm.add_label("CommandSellItem:")
-		asm.add_instruction("mov {esi},{eax}")
-		asm.add_instruction("add {esi},C")
 		asm.add_instruction("push 0")
 		asm.add_instruction("push 0")
 		asm.add_instruction("push 0")
-		asm.add_instruction("push dword[{eax}+4]")
+		asm.add_instruction("push dword[{eax}+C]")
+		asm.add_instruction("add {eax},4")
+		asm.add_instruction("mov {ecx},[{eax}]")
+		asm.add_instruction("test {ecx},{ecx}")
+		asm.add_instruction("jz [<SellItemAll>]")
+		asm.add_instruction("push {eax}")
+		asm.add_instruction("jmp [<SellItemContinue>]")
+
+		asm.add_label("SellItemAll:")
 		asm.add_instruction("push 0")
-		asm.add_instruction("add {eax},8")
+
+		asm.add_label("SellItemContinue:")
+		asm.add_instruction("add {eax},4")
 		asm.add_instruction("push {eax}")
 		asm.add_instruction("push 1")
 		asm.add_instruction("push 0")
 		asm.add_instruction("push B")
-		asm.add_instruction("call [<TransactionFunction>]")
+		asm.add_instruction(f"call {self.get_value("Transaction")}")
 		asm.add_instruction("add {esp},24")
 		asm.add_instruction("ljmp [<CommandReturn>]")
 
@@ -684,11 +689,11 @@ class Core:
 		asm.add_instruction("mov {eax},dword[{eax}+C]")
 		asm.add_instruction("push {eax}")
 		asm.add_instruction("push 1")
-		asm.add_instruction("call [<TransactionFunction>]")
+		asm.add_instruction(f"call {self.get_value('Transaction')}")
 		asm.add_instruction("add {esp},24")
 		asm.add_instruction("ljmp [<CommandReturn>]")
 
-		asm.add_label("CommandCraftItemEx:")
+		asm.add_label("CommandCraftItem:")
 		asm.add_instruction("add {eax},4")
 		asm.add_instruction("push {eax}")
 		asm.add_instruction("add {eax},4")
@@ -696,53 +701,33 @@ class Core:
 		asm.add_instruction("push 1")
 		asm.add_instruction("push 0")
 		asm.add_instruction("push 0")
-		asm.add_instruction("mov {ecx},dword[<TradeID>]")
-		asm.add_instruction("mov {ecx},dword[{ecx}]")
-		asm.add_instruction("mov {edx},dword[{eax}+4]")
-		asm.add_instruction("lea {ecx},dword[{ebx}+{ecx}*4]")
-		asm.add_instruction("push {ecx}")
-		asm.add_instruction("push 1")
+		asm.add_instruction("lea {edi},[{eax}+C]")
+		asm.add_instruction("push {edi}")
 		asm.add_instruction("push dword[{eax}+8]")
-		asm.add_instruction("push dword[{eax}+C]")
-		asm.add_instruction("call [<TraderFunction>]")
+		asm.add_instruction("push dword[{eax}+4]")
+		asm.add_instruction("push 3")
+		asm.add_instruction(f"call {self.get_value('Transaction')}")
 		asm.add_instruction("add {esp},24")
 		asm.add_instruction("mov dword[<TraderCostID>],0")
 		asm.add_instruction("ljmp [<CommandReturn>]")
 
-		asm.add_label("CommandAction:")
-		asm.add_instruction("mov {ecx},dword[<ActionBase>]")
-		asm.add_instruction("mov {ecx},dword[{ecx}+c]")
-		asm.add_instruction("add {ecx},A0")
+		asm.add_label("CommandCollectorExchange:")
+		asm.add_instruction("mov {edx},{eax}")
 		asm.add_instruction("push 0")
-		asm.add_instruction("add {eax},4")
+		asm.add_instruction("lea {ecx},[{edx}+4]")
+		asm.add_instruction("push {ecx}")
+		asm.add_instruction("push 1")
+		asm.add_instruction("push 0")
+		asm.add_instruction("lea {eax},[{edx}+C]")
 		asm.add_instruction("push {eax}")
-		asm.add_instruction("push dword[{eax}+4]")
-		asm.add_instruction("mov {edx},0")
-		asm.add_instruction("call [<ActionFunction>]")
-		asm.add_instruction("ljmp [<CommandReturn>]")
-
-		asm.add_label("CommandUseHeroSkill:")
-		asm.add_instruction("mov {ecx},dword[{eax}+8]")
+		asm.add_instruction("mov {ebx},[{edx}+8]")
+		asm.add_instruction("lea {ecx},[{edx}+{ebx}*4+C]")
 		asm.add_instruction("push {ecx}")
-		asm.add_instruction("mov {ecx},dword[{eax}+c]")
-		asm.add_instruction("push {ecx}")
-		asm.add_instruction("mov {ecx},dword[{eax}+4]")
-		asm.add_instruction("push {ecx}")
-		asm.add_instruction("call [<UseHeroSkillFunction>]")
-		asm.add_instruction("add {esp},C")
-		asm.add_instruction("ljmp [<CommandReturn>]")
-
-		asm.add_label("CommandSendChat:")
-		asm.add_instruction("lea {edx},dword[{eax}+4]")
-		asm.add_instruction("push {edx}")
-		asm.add_instruction("mov {ebx},11c")
 		asm.add_instruction("push {ebx}")
-		asm.add_instruction("mov {eax},dword[<PacketLocation>]")
-		asm.add_instruction("push {eax}")
-		asm.add_instruction("call [<PacketSendFunction>]")
-		asm.add_instruction("pop {eax}")
-		asm.add_instruction("pop {ebx}")
-		asm.add_instruction("pop {edx}")
+		asm.add_instruction("push 0")
+		asm.add_instruction("push 2")
+		asm.add_instruction(f"call {self.get_value('Transaction')}")
+		asm.add_instruction("add {esp},24")
 		asm.add_instruction("ljmp [<CommandReturn>]")
 
 		asm.add_label("CommandRequestQuote:")
@@ -760,7 +745,7 @@ class Core:
 		asm.add_instruction("push C")
 		asm.add_instruction("mov {ecx},0")
 		asm.add_instruction("mov {edx},2")
-		asm.add_instruction("call [<RequestQuoteFunction>]")
+		asm.add_instruction(f"call {self.get_value('RequestQuote')}")
 		asm.add_instruction("add {esp},20")
 		asm.add_instruction("ljmp [<CommandReturn>]")
 
@@ -777,7 +762,7 @@ class Core:
 		asm.add_instruction("push 0")
 		asm.add_instruction("push D")
 		asm.add_instruction("xor {edx},{edx}")
-		asm.add_instruction("call [<RequestQuoteFunction>]")
+		asm.add_instruction(f"call {self.get_value('RequestQuote')}")
 		asm.add_instruction("add {esp},20")
 		asm.add_instruction("ljmp [<CommandReturn>]")
 
@@ -793,7 +778,7 @@ class Core:
 		asm.add_instruction("push {edx}")
 		asm.add_instruction("push C")
 		asm.add_instruction("mov {ecx},C")
-		asm.add_instruction("call [<TraderFunction>]")
+		asm.add_instruction(f"call {self.get_value('Transaction')}")
 		asm.add_instruction("add {esp},24")
 		asm.add_instruction("mov dword[<TraderCostID>],0")
 		asm.add_instruction("mov dword[<TraderCostValue>],0")
@@ -811,7 +796,7 @@ class Core:
 		asm.add_instruction("push D")
 		asm.add_instruction("mov {ecx},d")
 		asm.add_instruction("xor {edx},{edx}")
-		asm.add_instruction("call [<TransactionFunction>]")
+		asm.add_instruction(f"call {self.get_value('Transaction')}")
 		asm.add_instruction("add {esp},24")
 		asm.add_instruction("mov dword[<TraderCostID>],0")
 		asm.add_instruction("mov dword[<TraderCostValue>],0")
@@ -821,7 +806,7 @@ class Core:
 		asm.add_instruction("push {eax}")
 		asm.add_instruction("push {ecx}")
 		asm.add_instruction("push {ebx}")
-		asm.add_instruction("mov {ebx},[<SalvageGlobal>]")
+		asm.add_instruction(f"mov {{ebx}},{self.get_value('SalvageGlobal')}")
 		asm.add_instruction("mov {ecx},dword[{eax}+4]")
 		asm.add_instruction("mov dword[{ebx}],{ecx}")
 		asm.add_instruction("add {ebx},4")
@@ -833,63 +818,20 @@ class Core:
 		asm.add_instruction("push {ebx}")
 		asm.add_instruction("mov {ebx},dword[{eax}+c]")
 		asm.add_instruction("push {ebx}")
-		asm.add_instruction("call [<SalvageFunction>]")
+		asm.add_instruction(f"call {self.get_value('Salvage')}")
 		asm.add_instruction("add {esp},C")
 		asm.add_instruction("pop {ebx}")
 		asm.add_instruction("pop {ecx}")
 		asm.add_instruction("pop {eax}")
 		asm.add_instruction("ljmp [<CommandReturn>]")
 
-		asm.add_label("CommandCraftItemEx2:")
-		asm.add_instruction("add {eax},4")
-		asm.add_instruction("push {eax}")
-		asm.add_instruction("add {eax},4")
-		asm.add_instruction("push {eax}")
-		asm.add_instruction("push 1")
-		asm.add_instruction("push 0")
-		asm.add_instruction("push 0")
-		asm.add_instruction("mov {ecx},dword[<TradeID>]")
-		asm.add_instruction("mov {ecx},dword[{ecx}]")
-		asm.add_instruction("mov {edx},dword[{eax}+8]")
-		asm.add_instruction("lea {ecx},dword[{ebx}+{ecx}*4]")
-		asm.add_instruction("mov {ecx},dword[{ecx}]")
-		asm.add_instruction("mov [{eax}+8],{ecx}")
-		asm.add_instruction("mov {ecx},dword[<TradeID>]")
-		asm.add_instruction("mov {ecx},dword[{ecx}]")
-		asm.add_instruction("mov {ecx},dword[{ecx}+0xF4]")
-		asm.add_instruction("lea {ecx},dword[{ecx}+{ecx}*2]")
-		asm.add_instruction("lea {ecx},dword[{ebx}+{ecx}*4]")
-		asm.add_instruction("mov {ecx},dword[{ecx}]")
-		asm.add_instruction("mov [{eax}+C],{ecx}")
-		asm.add_instruction("mov {ecx},{eax}")
-		asm.add_instruction("add {ecx},8")
-		asm.add_instruction("push {ecx}")
-		asm.add_instruction("push 2")
-		asm.add_instruction("push dword[{eax}+4]")
-		asm.add_instruction("push 3")
-		asm.add_instruction("call [<TransactionFunction>]")
-		asm.add_instruction("add {esp},24")
-		asm.add_instruction("mov dword[<TraderCostID>],0")
-		asm.add_instruction("ljmp [<CommandReturn>]")
-
-		asm.add_label("CommandIncreaseAttribute:")
-		asm.add_instruction("mov {edx},dword[{eax}+4]")
+		asm.add_label("CommandChangeTarget:")
+		asm.add_instruction("xor {edx},{edx}")
 		asm.add_instruction("push {edx}")
-		asm.add_instruction("mov {ecx},dword[{eax}+8]")
-		asm.add_instruction("push {ecx}")
-		asm.add_instruction("call [<IncreaseAttributeFunction>]")
-		asm.add_instruction("pop {ecx}")
-		asm.add_instruction("pop {edx}")
-		asm.add_instruction("ljmp [<CommandReturn>]")
-
-		asm.add_label("CommandDecreaseAttribute:")
-		asm.add_instruction("mov {edx},dword[{eax}+4]")
-		asm.add_instruction("push {edx}")
-		asm.add_instruction("mov {ecx},dword[{eax}+8]")
-		asm.add_instruction("push {ecx}")
-		asm.add_instruction("call [<DecreaseAttributeFunction>]")
-		asm.add_instruction("pop {ecx}")
-		asm.add_instruction("pop {edx}")
+		asm.add_instruction("mov {eax},dword[{eax}+4]")
+		asm.add_instruction("push {eax}")
+		asm.add_instruction(f"call {self.get_value('ChangeTarget')}")
+		asm.add_instruction("add {esp},8")
 		asm.add_instruction("ljmp [<CommandReturn>]")
 
 		asm.add_label("CommandMakeAgentArray:")
@@ -900,7 +842,7 @@ class Core:
 
 		asm.add_label("AgentCopyLoopStart:")
 		asm.add_instruction("inc {ebx}")
-		asm.add_instruction("cmp {ebx},dword[<MaxAgents>]")
+		asm.add_instruction(f"cmp {{ebx}},dword[{self.get_value('MaxAgents')}]")
 		asm.add_instruction("jge [<AgentCopyLoopExit>]")
 		asm.add_instruction("mov {esi},dword[<AgentBase>]")
 		asm.add_instruction("lea {esi},dword[{esi}+{ebx}*4]")
@@ -918,34 +860,29 @@ class Core:
 		asm.add_instruction("repe movsb")
 		asm.add_instruction("inc {edx}")
 		asm.add_instruction("jmp [<AgentCopyLoopStart>]")
+
 		asm.add_label("AgentCopyLoopExit:")
-		asm.add_instruction("mov dword[<AgentCopyCount>],{edx}")
+		asm.add_instruction(f"mov dword[{self.get_value('AgentCopyCount')}],{{edx}}")
 		asm.add_instruction("ljmp [<CommandReturn>]")
 
-		asm.add_label("CommandSendChatPartySearch:")
-		asm.add_instruction("lea {edx},dword[{eax}+4]")
-		asm.add_instruction("push {edx}")
-		asm.add_instruction("mov {ebx},4C")
-		asm.add_instruction("push {ebx}")
-		asm.add_instruction("mov {eax},dword[<PacketLocation>]")
+		asm.add_label("CommandMove:")
+		asm.add_instruction("lea {eax},dword[{eax}+4]")
 		asm.add_instruction("push {eax}")
-		asm.add_instruction("call [<PacketSendFunction>]")
+		asm.add_instruction(f"call {self.get_value('Move')}")
 		asm.add_instruction("pop {eax}")
-		asm.add_instruction("pop {ebx}")
-		asm.add_instruction("pop {edx}")
 		asm.add_instruction("ljmp [<CommandReturn>]")
 
-		# CreateDialogHook
-		asm.add_label("DialogLogProc:")
-		asm.add_instruction("push {ecx}")
-		asm.add_instruction("mov {ecx},{esp}")
-		asm.add_instruction("add {ecx},C")
-		asm.add_instruction("mov {ecx},dword[{ecx}]")
-		asm.add_instruction("mov dword[<LastDialogID>],{ecx}")
-		asm.add_instruction("pop {ecx}")
-		asm.add_instruction("mov {ebp},{esp}")
-		asm.add_instruction("sub {esp},8")
-		asm.add_instruction("ljmp [<DialogLogReturn>]")
+		asm.add_label("CommandEnterMission:")
+		asm.add_instruction("push dword[{eax}+4]")
+		asm.add_instruction(f"call {self.get_value('EnterMission')}")
+		asm.add_instruction("add {esp},4")
+		asm.add_instruction("ljmp [<CommandReturn>]")
+
+		asm.add_label("CommandSetDifficulty:")
+		asm.add_instruction("push dword[{eax}+4]")
+		asm.add_instruction(f"call {self.get_value('SetDifficulty')}")
+		asm.add_instruction("add {esp},4")
+		asm.add_instruction("ljmp [<CommandReturn>]")
 
 
 	def _assemble_payload(self, base_addr, payload_type="scan"):
@@ -956,31 +893,16 @@ class Core:
 		}
 		assemblers[payload_type].assemble(base_addr)
 
-	
+
 	def _write_detour(self, from_label: str, to_label: str) -> None:
 		"""
 		Writes a JMP detour in the modify buffer from one label to another
 
 		This modifies the buffer at the location of 'from_label' to jump to 'to_label'
-		
+
 		
 		"""
-		# Get original label address
-		from_addr = self.saved_values[from_label]
-
-		# Get Offset to apply to modify_base to find where the to_label r{esi}des in the modify payload
-		to_offset = self.modify_buffer.labels[to_label]
-
-		# Find to_addr by applying the offset to modify_base
-		to_addr = self.modify_base + to_offset
-
-		# Account for relative JMP instruction
-		rel_offset = to_addr - from_addr - 5
-		jmp_bytes = b'\E9' + struct.pack('<i', rel_offset)
-
-		# Override the function Start address with our detour and pray that it's aligned :)
-		self.proc_memory.write(from_addr, jmp_bytes)
-		print(f"Detour for {from_label} at {from_addr:X} placed for {to_label} at {to_addr:X}")
+		pass
 
 
 	def _save_references(self):
@@ -1020,21 +942,21 @@ class Core:
 		if scan_ptr_existing == 0:
 			self.scan_buffer = MemoryBuffer()
 			self._build_scan_payload()
-			remote_addr = self.proc_memory.allocate_memory(self.scan_buffer.asm_offset + self.scan_buffer.storage_label_offset)
-			self.scan_base = remote_addr + self.scan_buffer.storage_label_offset
+			scan_remote_addr = self.proc_memory.allocate_memory(self.scan_buffer.asm_offset + self.scan_buffer.storage_label_offset)
+			self.scan_base = scan_remote_addr
+			self.scan_inject_base = self.scan_base + self.scan_buffer.storage_label_offset
 			print(f"ScanBase -> 0x{self.scan_base:08X}")
+			print(f"ScanInjectBase -> 0x{self.scan_inject_base:08X}")
 			self._assemble_payload(self.scan_base)
 			print("Payload:")
 			print(self.scan_buffer.buffer.hex())
-			self.proc_memory.write_buffer(self.scan_base, self.scan_buffer)
-			self.proc_memory.memory_write(self.mem_base, self.scan_base)
-			print(f"Injected Scan Payload at 0x{self.scan_base:08X}")
+			self.proc_memory.write_buffer(self.scan_inject_base, self.scan_buffer)
+			self.proc_memory.memory_write(self.mem_base, self.scan_inject_base)
+			print(f"Injected Scan Payload at 0x{self.scan_inject_base:08X}")
 			self.scanner_injected = True
 
 		else:
 			print(f"Scanner already injected at 0x{scan_ptr_existing:08X}")
-
-		
 
 		scan_ptr_exists_after_inject = self.proc_memory.memory_read(self.mem_base)
 		if scan_ptr_exists_after_inject and not self.scanner_injected:
@@ -1046,24 +968,17 @@ class Core:
 		self._execute_remote_thread()
 
 		# after remote thread ends free up memory
-		self.proc_memory.free_allocated_memory(self.scan_base)
-		print("Memory freed.")
+		# self.proc_memory.free_allocated_memory(self.scan_base)
+		# print("Memory freed.")
 		# self.scanner_injected = False
 
 		# # read in scanned values from scanner payload
-		# self._read_scan_values()
+		self._read_scan_values()
+		print("SAVED VALUES")
+		print(self.saved_values)
+		self.proc_memory.free_allocated_memory(self.scan_base)
+		print("Memory freed!")
 
-		# # add these for modify buffer to reference
-		# self.set_value("QueueSize", SIZE_QUEUE)
-		# self.set_value("SkillLogSize", SIZE_SKILL_LOG)
-		# self.set_value("ChatLogSize", SIZE_CHAT_LOG)
-		# self.set_value("TargetLogSize", SIZE_TARGET_LOG)
-		# self.set_value("StringLogSize", SIZE_STRING_LOG)
-		# self.set_value("CallbackEvent", SIZE_CALLBACK_EVENT)
-
-		# # create asm payload to add function detours with our custom logic
-		
-		
 		# check if modify payload has already been injected, do not inject again if already present
 		# modify_ptr_addr = ADDRESS_BASE_MODIFY_MEMORY
 		# modify_ptr_existing = self.proc_memory.memory_read(modify_ptr_addr)
@@ -1074,13 +989,15 @@ class Core:
 		# 	modify_remote_addr = self.proc_memory.allocate_memory(len(self.modify_buffer.buffer))
 		# 	self.modify_base = modify_remote_addr
 		# 	print(f"ModifyBase -> {self.modify_base}")
-		# 	self._assemble_payload(self.modify_base)
+		# 	self._assemble_payload(self.modify_base, payload_type="modify")
 		# 	print("Payload at MainProc:")
 		# 	print(self.modify_buffer.buffer[self.modify_buffer.labels["MainProc"]:].hex())
-		# 	self.proc_memory.write_buffer(modify_remote_addr, self.modify_buffer)
-		# 	self.proc_memory.memory_write(modify_ptr_addr, modify_remote_addr)
-		# 	print(f"Injected Modify Payload at 0x{self.modify_base:08X}")
-		# 	self._read_modify_values()
+		# 	# self.proc_memory.write_buffer(modify_remote_addr, self.modify_buffer)
+		# 	# self.proc_memory.memory_write(modify_ptr_addr, modify_remote_addr)
+		# 	# print(f"Injected Modify Payload at 0x{self.modify_base:08X}")
+		# 	# self._read_modify_values()
+		# 	self.proc_memory.free_allocated_memory(self.modify_base)
+		# 	print("Modify Memory freed.")
 		# else:
 		# 	raise OSError("Modify Buffer already injected? Not sure how...")
 		
