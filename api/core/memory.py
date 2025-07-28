@@ -5,14 +5,13 @@ ProjectPotato memory module
 
 """
 #stdlib
-import os
-import mmap
 import ctypes
 import ctypes.wintypes as wintypes
+from ctypes import ARRAY
 import struct
 
 #mylib
-from scanner import ProcessFileScanner
+from .scanner import ProcessFileScanner
 
 
 
@@ -268,6 +267,19 @@ class ProcessMemory(ProcessFileScanner):
 		buffer = ctype_type()
 		self._kernel32.ReadProcessMemory(self._proc, address, ctypes.byref(buffer), ctypes.sizeof(buffer), None)
 		return (address, buffer.value)
+
+
+	def memory_read_gw_array(self, hdr: ctypes.Structure, arr_type: ctypes.Structure):
+		"""
+		Reads a known address in memory for a specific type of GWArray and transcribes based on type
+
+		 :param address:		Address of memory to read
+		 :param hdr:			GWArray structure header instance
+		 :param arr_type:		custom Structure instance type to use
+		
+		"""
+		arr = ARRAY(arr_type, hdr.m_size)
+		return self._kernel32.ReadProcessMemory(self._proc, hdr.m_buffer, ctypes.byref(arr), ctypes.sizeof(arr), None)
 
 
 	def memory_read_array(self, address: int, size_offset: int = 0) -> list[int]:
