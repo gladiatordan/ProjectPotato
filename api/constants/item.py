@@ -1,0 +1,238 @@
+from enum import IntEnum, auto
+
+
+class ItemType(IntEnum):
+	SALVAGE           = 0
+	AXE               = 2
+	BAG               = auto()
+	BOOTS             = auto()
+	BOW               = auto()
+	BUNDLE            = auto()
+	CHESTPIECE        = auto()
+	RUNE_MOD          = auto()
+	USEABLE           = auto()
+	DYE               = auto()
+	MATERIALS_ZCOINS  = auto()
+	OFFHAND           = auto()
+	GLOVES            = auto()
+	HAMMER            = 15
+	HEADPIECE         = auto()
+	CC_SHARDS         = auto()
+	KEY               = auto()
+	LEGGINS           = auto()
+	GOLD_COIN         = auto()
+	QUEST_ITEM        = auto()
+	WAND              = auto()
+	SHIELD            = 24
+	STAFF             = 26
+	SWORD             = auto()
+	KIT               = 29
+	TROPHY            = auto()
+	SCROLL            = auto()
+	DAGGERS           = auto()
+	PRESENT           = auto()
+	MINIPET           = auto()
+	SCYTHE            = auto()
+	SPEAR             = auto()
+	STORYBOOK         = 43
+	COSTUME           = auto()
+	COSTUME_HEADPIECE = auto()
+	UNKNOWN           = 0xFF
+
+
+
+class ItemModelID(IntEnum):
+	DYE = 146
+
+	# Items that create agents
+	GHOST_IN_THE_BOX   = 6368
+	SUMMON_GHASLTY     = 32557
+	SUMMON_LEGIONNAIRE = 37810
+	SUMMON_TENGU       = 30209
+	SUMMON_TURTLE      = 30966
+	SUMMON_GUARDS      = 30210
+	SUMMON_WARHORN     = 35126
+	SUMMON_GAKI        = 30960
+
+	# Common Materials
+	MATERIAL_COMMON_BONE       = 921
+	MATERIAL_COMMON_CLOTH      = 925
+	MATERIAL_COMMON_DUST       = 929
+	MATERIAL_COMMON_FEATHER    = 933
+	MATERIAL_COMMON_FIBER      = 934
+	MATERIAL_COMMON_TANNEDHIDE = 940
+	MATERIAL_COMMON_WOOD       = 946
+	MATERIAL_COMMON_IRON       = 948
+	MATERIAL_COMMON_SCALE      = 953
+	MATERIAL_COMMON_CHITIN     = 954
+	MATERIAL_COMMON_GRANITE    = 955
+
+	# Rare Materials
+	MATERIAL_RARE_AMBER      = 6532
+	MATERIAL_RARE_DAMASK     = 927
+	MATERIAL_RARE_LINEN      = 926
+	MATERIAL_RARE_SILK       = 928
+	MATERIAL_RARE_DELDRIMOR  = 950
+	MATERIAL_RARE_DIAMOND    = 935
+	MATERIAL_RARE_ELONIAN    = 943
+	MATERIAL_RARE_FUR        = 941
+	MATERIAL_RARE_ECTO       = 930
+	MATERIAL_RARE_JADEITE    = 6533
+	MATERIAL_RARE_LEATHER    = 942
+	MATERIAL_RARE_CHARCOAL   = 922
+	MATERIAL_RARE_CLAW       = 923
+	MATERIAL_RARE_EYE        = 931
+	MATERIAL_RARE_FANG       = 932
+	MATERIAL_RARE_OBSIDIAN   = 945
+	MATERIAL_RARE_ONYX       = 936
+	MATERIAL_RARE_PARCHMENT  = 951
+	MATERIAL_RARE_VELLUM     = 952
+	MATERIAL_RARE_RUBY       = 937
+	MATERIAL_RARE_SAPPHIRE   = 938
+	MATERIAL_RARE_SPIRITWOOD = 956
+	MATERIAL_RARE_STEEL      = 949
+	MATERIAL_RARE_GLASS      = 939
+	MATERIAL_RARE_INK        = 944
+	
+	# XP Scrolls
+	SCROLL_XP_ADVENTURERS  = 5853
+	SCROLL_XP_BERSERKERS   = 5595
+	SCROLL_XP_HEROS        = 5594
+	SCROLL_XP_HUNTERS      = 5976
+	SCROLL_XP_RAMPAGERS    = 5975
+	SCROLL_XP_SLAYERS      = 5611
+	SCROLL_XP_LIGHTBRINGER = 21233
+	
+	# PCons
+	CONSUME_SOUP            = 17061
+	CONSUME_SALAD           = 17062
+	CONSUME_KABOB           = 17060
+	CONSUME_ROOTCAKE        = 19170
+	CONSUME_PIE             = 28436
+	CONSUME_CUPCAKE         = 22269
+	CONSUME_APPLE           = 28431
+	CONSUME_CORN            = 28432
+	CONSUME_EGG             = 22752
+	CONSUME_WARSUPPLIES     = 35121
+	CONSUME_LUNAR_PIG       = 29424
+	CONSUME_LUNAR_RAT       = auto()
+	CONSUME_LUNAR_OX        = auto()
+	CONSUME_LUNAR_TIGER     = auto()
+	CONSUME_LUNAR_RABBIT    = auto()
+	CONSUME_LUNAR_DRAGON    = auto()
+	CONSUME_LUNAR_SNAKE     = auto()
+	CONSUME_LUNAR_HORSE     = auto()
+	CONSUME_LUNAR_SHEEP     = auto()
+	CONSUME_LUNAR_MONKEY    = auto()
+	CONSUME_LUNAR_ROOSTER   = auto()
+	CONSUME_LUNAR_DOG       = auto()
+	CONSUME_ROCKCANDY_GREEN = 31152
+	CONSUME_ROCKCANDY_BLUE  = 31151
+	CONSUME_ROCKCANDY_RED   = 31153
+
+	# Cons
+	CONSUME_CONS_ESSENCE = 24859
+	CONSUME_CONS_ARMOR   = auto()
+	CONSUME_CONS_GRAIL   = auto()
+
+	# Misc
+	CONSUME_RESSCROLL  = 26501
+	CONSUME_MOBSTOPPER = 32558
+
+	# Morale
+	CONSUME_POWERSTONE    = 24862
+	CONSUME_SEAL          = 30211
+	CONSUME_ELIXIROFVALOR = 21277
+	CONSUME_HONEYCOMB     = 26784
+	CONSUME_PUMPKINCOOKIE = 28433
+	CONSUME_CC_RAINBOW    = 21489
+
+	# DP
+	CONSUME_CLOVER         = 22191
+	CONSUME_OATH           = 30206
+	CONSUME_CC_PEPPERMINT  = 6370
+	CONSUME_CC_WINTERGREEN = 21488
+	CONSUME_JELLY          = 19039
+	CONSUME_SBRATIONS      = 35127
+
+	# Alcohol
+	CONSUME_ALCOHOL_EGGNOG         = 6375
+	CONSUME_ALCOHOL_DWARVENALE     = 5585
+	CONSUME_ALCOHOL_HUNTERSALE     = 910
+	CONSUME_ALCOHOL_ABSINTHE       = 6367
+	CONSUME_ALCOHOL_WITCHSBREW     = 6049
+	CONSUME_ALCOHOL_RICEWINE       = 15477
+	CONSUME_ALCOHOL_SHAMROCKALE    = 22190
+	CONSUME_ALCOHOL_CIDER          = 28435
+	CONSUME_ALCOHOL_GROG           = 30855
+	CONSUME_ALCOHOL_SPIKEDEGGNOG   = 6366
+	CONSUME_ALCOHOL_AGEDDWARVENALE = 24593
+	CONSUME_ALCOHOL_AGEDHUNTERSALE = 31145
+	CONSUME_ALCOHOL_KEG            = 31146
+	CONSUME_ALCOHOL_FIREWATER      = 2513
+	CONSUME_ALCOHOL_KRYTANBRANDY   = 35124
+	CONSUME_ALCOHOL_ZEHTUKASJUG    = 19171
+	CONSUME_ALCOHOL_JUNIBERRYGIN   = 19172
+	CONSUME_ALCOHOL_VABBIANWINE    = 19173
+	CONSUME_ALCOHOL_ICEDTEA        = 36682
+
+	# Sweets
+	CONSUME_SWEET_FRUITCAKE   = 21492
+	CONSUME_SWEET_REDBEANCAKE = 15479
+	CONSUME_SWEET_CREMEBRULEE = 15528
+	CONSUME_SWEET_SUGARYBLUE  = 21812
+	CONSUME_SWEET_BUNNY       = 22644
+	CONSUME_SWEET_HONEY       = 31150
+	CONSUME_SWEET_KRYTANLOKUM = 35125
+	CONSUME_SWEET_MINISTREAT  = 30208
+
+	# Money
+	MONEY_GOLDCOIN  = 2510
+	MONEY_GOLDCOINS = 2511
+
+
+
+class MaterialSlot(IntEnum):
+	# Common
+	BONE       = 0
+	IRON       = auto()
+	TANNEDHIDE = auto()
+	SCALE      = auto()
+	CHITIN     = auto()
+	CLOTH      = auto()
+	WOOD       = auto()
+	GRANITE    = 8
+	DUST       = auto()
+	FIBER      = auto()
+	FEATHER    = auto()
+
+	# Rare
+	FUR          = auto()
+	LINEN        = auto()
+	DAMASK       = auto()
+	SILK         = auto()
+	ECTO         = auto()
+	STEEL        = auto()
+	DELDRIMOR    = auto()
+	CLAW         = auto()
+	EYE          = auto()
+	FANG         = auto()
+	RUBY         = auto()
+	SAPPHIRE     = auto()
+	DIAMOND      = auto()
+	ONYX         = auto()
+	CHARCOAL     = auto()
+	OBSIDIAN     = auto()
+	GLASS        = 29
+	LEATHER      = auto()
+	ELONIAN      = auto()
+	INK          = auto()
+	PARCHMENT    = auto()
+	VELLUM       = auto()
+	SPIRITWOOD   = auto()
+	AMBER        = auto()
+	JADEITE      = auto()
+	ZCOIN_BRONZE = auto()
+	ZCOIN_SILVER = auto()
+	ZCOIN_GOLD   = auto()
+	COUNT        = auto()
