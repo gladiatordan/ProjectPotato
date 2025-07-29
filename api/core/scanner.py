@@ -350,10 +350,8 @@ class FileScanner:
 			pattern, offset = scan_values[k]
 			res = self.find(bytes.fromhex(pattern), offset)
 			if res != 0:
-				print(f"Found scan value {k} at addr 0x{res:08X} (offset = {hex(offset)})")
+				# print(f"Found scan value {k} at addr 0x{res:08X} (offset = {hex(offset)})")
 				self.scanned_values[k] = res
-			else:
-				print(f"Could not find scan value for {k}")
 
 	def close(self):
 		self.mapped.close()
