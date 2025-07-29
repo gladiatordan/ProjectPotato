@@ -148,7 +148,7 @@ class MemoryBuffer:
 		return address
 
 
-class ProcessMemory(FileScanner):
+class ProcessMemory:
 	"""
 	
 	Instance used when dealing with memory of a target process
@@ -162,7 +162,7 @@ class ProcessMemory(FileScanner):
 		self.base_address = 0																# Base Address of Process
 		self._proc = self._kernel32.OpenProcess(PROCESS_ALL_ACCESS, False, self.pid)		# ProcessHandle
 		self._pe_path = self._get_module_filename()
-		super().__init__(self._pe_path)
+		print(f"BASE ADDR -> {hex(self.base_address)}")
 		
 
 	def _get_module_filename(self):
@@ -238,28 +238,12 @@ class ProcessMemory(FileScanner):
 		self._kernel32.ReadProcessMemory(self._proc, address, ctypes.byref(buffer), ctypes.sizeof(buffer), None)
 		return buffer.value
 	
-
-	def memory_read_ptr(self, address: int, offsets: list[int], ctype_type=ctypes.c_uint32) -> tuple[int, int] | tuple[int, None]:
-		"""attempts to dereference and read a given pointer with any given offsets of current process handle"""
+	def memory_read_struct(self, address: int, ctype_type=ctypes.c_uint32) -> ctypes.Structure:
 		if not self._proc:
 			self.memory_open()
-
-		# apply all offsets except last
-		for offset in offsets[:-1]:
-			address += offset
-			buffer = ctype_type()
-			self._kernel32.ReadProcessMemory(self._proc, address, ctypes.byref(buffer), ctypes.sizeof(buffer), None)
-			address = buffer.value
-			if address == 0:
-				# return nothing because we're clearly off
-				return (0, None)
-		
-		# add final offset
-		address += offsets[-1]
 		buffer = ctype_type()
 		self._kernel32.ReadProcessMemory(self._proc, address, ctypes.byref(buffer), ctypes.sizeof(buffer), None)
-		return (address, buffer.value)
-
+		return buffer
 
 	def memory_read_gw_array(self, hdr: ctypes.Structure, arr_type: ctypes.Structure):
 		"""
@@ -289,13 +273,6 @@ class ProcessMemory(FileScanner):
 		self._kernel32.ReadProcessMemory(self._proc, base_ptr, ctypes.byref(buffer), ctypes.sizeof(buffer), None)
 		return [ptr for ptr in buffer if ptr]
 	
-
-	def memory_read_array_ptr(self, address: int, offsets: list[int], size_offset: int) -> list[int]:
-		"""attempts to dereference an array pointer at a given address + offset chain of the current process handle"""
-		base_address, _ = self.memory_read_ptr(address, offsets, ctypes.c_void_p)
-		return self.memory_read_array(base_address, size_offset)
-	
-
 	def swap_endian(self, hex_str: str) -> str:
 		"""swaps endianness of given hex string"""
 		assert len(hex_str) == 8, "Hex String must be length 8"
