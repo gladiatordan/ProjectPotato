@@ -14,7 +14,7 @@ from elevate import elevate
 
 class GWAPY(Core):
 	def __init__(self):
-		super().__init__(target_exe="gw.exe")
+		super().__init__(target_exe="Gw.exe", target_root="C:\\Users\\Daniel\\Desktop\\GW")
 		# targets = self.get_processes()
 
 		# print("Found targets for gw.exe")
