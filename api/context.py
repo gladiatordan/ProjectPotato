@@ -1,5 +1,8 @@
-import structs
+#stdlib
 from ctypes import *
+
+#mylib
+import structs
 
 
 class Context:
@@ -49,7 +52,15 @@ class GameContext(Context):
 
 	def get_game_cxt(self) -> structs.GameContext:
 		self._check_initialized()
-		return self.pmem.memory_read(self.api.saved_values["BasePointer"] + 0x6, structs.GameContext)
+		base_ptr = self.api.saved_values["BasePtr"]
+		base_context_ptr = self.pmem.memory_read(base_ptr, c_uint32)
+		if not base_context_ptr:
+			raise RuntimeError(f"Could not dereference base_ptr at addr -> {hex(base_ptr)}")
+		
+		game_context_ptr = self.pmem.memory_read(base_context_ptr, structs.game.GameContext)
+		if not game_context_ptr:
+			raise RuntimeError(f"Could not dereference game_context_ptr at addr -> {hex(game_context_ptr)}")
+		return self.pmem.memory_read(game_context_ptr, structs.GameContext)
 	
 	def get_agent_cxt(self) -> structs.AgentContext:
 		return self.pmem.memory_read(self.get_game_cxt().agent, structs.AgentContext)
