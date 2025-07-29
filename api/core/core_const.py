@@ -31,7 +31,7 @@ scanner_assertions = {
 }
 
 scanner_patterns = {
-	"BasePtr"      	   : ["506A0F6A00FF35", 0x8],
+	"BasePtr"      	   : ["506A0F6A00FF35", 0x7],
 	"CurrentTargetPtr" : ["6A00506820000010", 0x11],	# DAT_00ee28f8 from GWA,
 	"MyIDPtr"		   : ["83EC08568BF13B15", -0x4],
 	"Engine"           : ["568B3085F67478EB038D4900D9460C", -0x22],
