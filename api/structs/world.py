@@ -7,7 +7,7 @@ from . import GWArray, Vec3f
 
 class WorldContext(Structure):
 	_fields_ = [
-		("account_info", c_void_p),
+		("account_info", c_uint32),
 		("message_buff", GWArray),
 		("dialog_buff", GWArray),
 		("merch_items", GWArray),					# Item Array of currently-interacted merchant
@@ -18,7 +18,7 @@ class WorldContext(Structure):
 		("accum_map_init_length", c_uint32),
 		("h0054", c_uint32),
 		("accum_map_init_unk2", c_uint32),
-		("h005C", c_uint32),
+		("h005C", c_uint32 * 8),
 		("map_agents", GWArray),
 		("party_allies", GWArray),
 		("all_flag", Vec3f),
@@ -95,6 +95,10 @@ class WorldContext(Structure):
 		("current_balth_dupe", c_uint32),
 		("total_earned_balth", c_uint32),
 		("total_earned_balth_dupe", c_uint32),
+		("current_skill_points", c_uint32),
+		("current_skill_points_dupe", c_uint32),
+		("total_earned_skill_points", c_uint32),
+		("total_earned_skill_points_dupe", c_uint32),
 		("max_kurzick", c_uint32),
 		("max_luxon", c_uint32),
 		("max_balth", c_uint32),
@@ -112,4 +116,5 @@ class WorldContext(Structure):
 		("foes_to_kill", c_uint32),
 	]
 
-
+	def __repr__(self):
+		return f"{self.__class__.__name__}:\n" + ", ".join(f"{name}={getattr(self, name)}\n" for name, _ in self._fields_)
