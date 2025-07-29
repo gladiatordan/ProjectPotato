@@ -101,19 +101,14 @@ class Core:
 
 	def _initialize(self, target_title: str):
 		if self.initialized:
-			print("Already initialized, why are we calling this again?")
 			return
 
 		proc = self.proc_scanner.get_process_by_title(target_title)
-
 		if not proc:
 			raise RuntimeError(f"Could not find process with title: '{target_title}'")
+
 		self.proc = proc
 		self.proc_memory = ProcessMemory(self.proc.pid)
 		self.proc_memory.memory_open()
-		pmem = self.proc_memory
-		
 		self.scanner.find_assertions(scanner_assertions)
 		self.scanner.scan_for_values(scanner_patterns)
-
-		print(self.scanner.get_scanned_values())
