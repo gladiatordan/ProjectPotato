@@ -1,6 +1,29 @@
 #stdlib
 from ctypes import *
 
+#mylib
+from .account import *
+from .agent import *
+from .attribute import *
+from .char import *
+from .gadget import *
+from .game_entities import *
+from .game import *
+from .gameplay import *
+from .guild import *
+from .hero import *
+from .item import *
+from .map import *
+from .npc import *
+from .party import *
+from .player import *
+from .pregame import *
+from .quest import *
+from .skill import *
+from .title import *
+from .trade import *
+from .world import *
+
 
 class GWArray(Structure):
 	_fields_ = [
