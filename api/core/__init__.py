@@ -8,12 +8,12 @@ usage: from core import Core
 
 """
 #stdlib
-import ctypes
-from ctypes import wintypes
+import os
+import glob
 
 #mylib
 from .core_const import *
-from .scanner import ProcessScanner
+from .scanner import ProcessScanner, FileScanner
 from .memory import MemoryBuffer, ProcessMemory
 from .assembler import Assembler
 
@@ -24,18 +24,21 @@ class Core:
 	Do not expose this beyond the API scope!
 
 	"""
-	def __init__(self, target_exe):
+	def __init__(self, target_exe, target_root):
 		self.proc_scanner = ProcessScanner(target_exe)
-		self.scan_buffer = None
-		self.scan_assembler = None
 		self.modify_buffer = None
 		self.modify_assembler = None
 		self.proc_memory = None
 		self.proc = None
-		self.scanner_injected = False
 		self.initialized = False
 		self.references = {}
 		self.saved_values = {}
+
+		for f in glob.glob(f"{os.path.join(target_root, "*")}"):
+			if os.path.isdir(f) and "GuildWars" in f:
+				pe_path = os.path.join(target_root, f, target_exe)
+				break
+		self.scanner = FileScanner(pe_path)
 
 	def get_processes(self):
 		return self.proc_scanner.get_scanned_processes()
@@ -105,5 +108,12 @@ class Core:
 
 		if not proc:
 			raise RuntimeError(f"Could not find process with title: '{target_title}'")
+		self.proc = proc
+		self.proc_memory = ProcessMemory(self.proc.pid)
+		self.proc_memory.memory_open()
+		pmem = self.proc_memory
 		
-		# TODO - redo this routine
+		self.scanner.find_assertions(scanner_assertions)
+		self.scanner.scan_for_values(scanner_patterns)
+
+		print(self.scanner.get_scanned_values())
