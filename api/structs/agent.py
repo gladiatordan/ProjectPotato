@@ -1,5 +1,5 @@
 #stdlib
-from ctypes import *
+from ctypes import Structure, c_uint32, c_uint16, c_uint8, c_float, c_void_p, c_wchar_p, c_char, sizeof, cast, pointer, POINTER
 
 #mylib
 from . import GWArray, TList, TLink, Vec2f, Vec3f
@@ -36,6 +36,25 @@ class AgentContext(Structure):
 		("h016C", c_uint32 * 15),
 		("instance_timer", c_uint32),
 	]
+
+
+class RawAgent(Structure):
+	_fields_ = [
+		("data", c_char * 0x1C0),
+	]
+
+	def to_agent(self):
+		# polymorphic cast into the correct agent
+		a_type = c_uint32.from_buffer_copy(self.data[0x9C:0xA0]).value
+		agents = [
+			((a_type & 0xDB) != 0, AgentLiving),
+			((a_type & 0x400) != 0, AgentItem),
+			((a_type & 0x200) != 0, AgentGadget),
+		]
+		for (chk, cls) in agents.items():
+			if chk:
+				return cast(pointer(self), POINTER(cls)).contents
+		raise RuntimeError(f"RawAgent could not perform polymorphic cast to any Agent! (type = {self.type})")
 
 
 class Agent(Structure):
@@ -92,15 +111,15 @@ class Agent(Structure):
 		return self.type & 0xDB != 0
 
 
-class AgentInfo(Structure):
-	_fields_ = [
+class AgentInfo(Agent):
+	_fields_ = Agent._fields_ + [
 		("h0000", c_uint32 * 13),
 		("name_enc", c_wchar_p),
 	]
 
 
-class AgentItem(Structure):
-	_fields_ = [
+class AgentItem(Agent):
+	_fields_ = Agent._fields_ + [
 		("owner", c_uint32),
 		("item_id", c_uint32),
 		("h00CC", c_uint32),
@@ -108,8 +127,8 @@ class AgentItem(Structure):
 	]
 
 
-class AgentGadget(Structure):
-	_fields_ = [
+class AgentGadget(Agent):
+	_fields_ = Agent._fields_ + [
 		("h00C4", c_uint32),
 		("h00C8", c_uint32),
 		("extra_type", c_uint32),
@@ -307,7 +326,7 @@ class MapAgent(Structure):
 		return self.effects & 0x8000 != 0
 
 
-class AgentSummaryInfo(Structure):
+class AgentSummaryInfoSub(Structure):
 	_fields_ = [
 		("h0000", c_uint32),
 		("h0004", c_uint32),
@@ -316,6 +335,14 @@ class AgentSummaryInfo(Structure):
 		("gadget_name_enc", c_wchar_p),
 		("h0014", c_uint32),
 		("composite_agent_id", c_uint32),
+	]
+
+
+class AgentSummaryInfo(Structure):
+	_fields_ = [
+		("h0000", c_uint32),
+		("h0004", c_uint32),
+		("extra_info_sub", c_uint32),
 	]
 
 
@@ -335,3 +362,16 @@ class AgentMovement(Structure):
 		("h0074", Vec3f),
 	]
 
+
+# sizes dervied from GWCA so these need to be exact
+assert(sizeof(AgentContext) == 0x170)
+assert(sizeof(RawAgent) == 0x1C0)
+assert(sizeof(Agent) == 0xC4)
+assert(sizeof(AgentItem) == 0xD4)
+assert(sizeof(AgentGadget) == 0xE4)
+assert(sizeof(AgentLiving) == 0x1C0)
+assert(sizeof(AgentInfo) == 0x38)
+assert(sizeof(MapAgent) == 0x30)
+assert(sizeof(AgentMovement) == 0x74)
+assert(sizeof(AgentSummaryInfo) == 0xC)
+assert(sizeof(AgentSummaryInfoSub) == 0x18)
