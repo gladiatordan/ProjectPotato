@@ -1,8 +1,8 @@
 #stdlib
-from ctypes import *
+from ctypes import ARRAY, c_uint32
 
 #mylib
-import structs
+from . import structs
 
 
 class Context:
@@ -52,42 +52,42 @@ class GameContext(Context):
 
 	def get_game_cxt(self) -> structs.GameContext:
 		self._check_initialized()
-		base_ptr = self.api.saved_values["BasePtr"]
-		base_context_ptr = self.pmem.memory_read(base_ptr, c_uint32)
+		base_ptr = self.pmem.memory_read(self.pmem.memory_read(self.api.saved_values["BasePtr"])) # derefernce twice to get the actual thing
+		base_context_ptr = self.pmem.memory_read(base_ptr)
 		if not base_context_ptr:
 			raise RuntimeError(f"Could not dereference base_ptr at addr -> {hex(base_ptr)}")
 		
-		game_context_ptr = self.pmem.memory_read(base_context_ptr, structs.game.GameContext)
+		game_context_ptr = self.pmem.memory_read(base_context_ptr + 0x6 * 4)
 		if not game_context_ptr:
 			raise RuntimeError(f"Could not dereference game_context_ptr at addr -> {hex(game_context_ptr)}")
-		return self.pmem.memory_read(game_context_ptr, structs.GameContext)
+		return self.pmem.memory_read_struct(game_context_ptr, structs.GameContext)
 	
 	def get_agent_cxt(self) -> structs.AgentContext:
-		return self.pmem.memory_read(self.get_game_cxt().agent, structs.AgentContext)
+		return self.pmem.memory_read_struct(self.get_game_cxt().agent, structs.AgentContext)
 	
 	def get_map_cxt(self) -> structs.MapContext:
-		return self.pmem.memory_read(self.get_game_cxt().map, structs.MapContext)
+		return self.pmem.memory_read_struct(self.get_game_cxt().map, structs.MapContext)
 	
 	def get_account_cxt(self) -> structs.AccountContext:
-		return self.pmem.memory_read(self.get_game_cxt().account, structs.AccountContext)
+		return self.pmem.memory_read_struct(self.get_game_cxt().account, structs.AccountContext)
 	
 	def get_world_cxt(self) -> structs.WorldContext:
-		return self.pmem.memory_read(self.get_game_cxt().world, structs.WorldContext)
+		return self.pmem.memory_read_struct(self.get_game_cxt().world, structs.WorldContext)
 	
 	def get_gadget_cxt(self) -> structs.GadgetContext:
-		return self.pmem.memory_read(self.get_game_cxt().gadget, structs.GadgetContext)
+		return self.pmem.memory_read_struct(self.get_game_cxt().gadget, structs.GadgetContext)
 
 	def get_guild_cxt(self) -> structs.GuildContext:
-		return self.pmem.memory_read(self.get_game_cxt().guild, structs.GuildContext)
+		return self.pmem.memory_read_struct(self.get_game_cxt().guild, structs.GuildContext)
 	
 	def get_item_cxt(self) -> structs.ItemContext:
-		return self.pmem.memory_read(self.get_game_cxt().items, structs.ItemContext)
+		return self.pmem.memory_read_struct(self.get_game_cxt().items, structs.ItemContext)
 	
 	def get_party_cxt(self) -> structs.PartyContext:
-		return self.pmem.memory_read(self.get_game_cxt().party, structs.PartyContext)
+		return self.pmem.memory_read_struct(self.get_game_cxt().party, structs.PartyContext)
 	
 	def get_trade_cxt(self) -> structs.TradeContext:
-		return self.pmem.memory_read(self.get_game_cxt().trade, structs.TradeContext)
+		return self.pmem.memory_read_struct(self.get_game_cxt().trade, structs.TradeContext)
 
 
 class WorldContext(Context):
@@ -109,7 +109,7 @@ class WorldContext(Context):
 	def get_merch_item_array(self):
 		world = self.get_world_cxt()
 		arr = ARRAY(c_uint32, world.merch_items.m_size)
-		return self.pmem.memory_read(world.merch_items.m_buffer, arr)
+		return self.pmem.memory_read_struct(world.merch_items.m_buffer, arr)
 	
 	def get_map_agents_array(self):
 		return self.pmem.memory_read_gw_array(self.get_world_cxt().map_agents, structs.MapAgent)
