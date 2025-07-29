@@ -1,5 +1,5 @@
 #stdlib
-from ctypes import Structure, c_uint32, c_uint8
+from ctypes import Structure, c_uint32, c_uint8, sizeof
 
 #mylib
 from . import GWArray
@@ -33,3 +33,8 @@ class AccountContext(Structure):
 		("unlocked_account_skills", GWArray),
 		("account_flags", c_uint32),
 	]
+
+
+assert(sizeof(AccountUnlockedCount) == 12)
+assert(sizeof(AccountUnlockedItemInfo) == 12)
+assert(sizeof(AccountContext) == 0x138)
