@@ -11,15 +11,17 @@ from ctypes import ARRAY
 import struct
 
 #mylib
-from .scanner import ProcessFileScanner
+from .scanner import FileScanner
 
 
-
-PROCESS_ALL_ACCESS 		= 0x1F0FFF              # process open access rights
-MEM_COMMIT				= 0x1000				# commit memory
-MEM_RESERVE				= 0x2000				# reserve memory
-PAGE_EXECUTE_READWRITE  = 0x40
-
+PROCESS_ALL_ACCESS 			= 0x1F0FFF              # process open access rights
+MEM_COMMIT					= 0x1000				# commit memory
+MEM_RESERVE					= 0x2000				# reserve memory
+PAGE_EXECUTE_READWRITE  	= 0x40
+HIGH_PRIORITY_CLASS			= 0x80
+NORMAL_PRIORITY_CLASS		= 0x20
+BELOW_NORMAL_PRIORITY_CLASS = 0x4000
+IDLE_PRIORITY_CLASS			= 0x40
 
 
 class MemoryBuffer:
@@ -44,12 +46,10 @@ class MemoryBuffer:
 		self.jumps = {}
 		self.storage_label_offset = 0
 
-
 	def reset_asm_state(self) -> None:
 		"""Resets the assembler-specific state"""
 		self.asm_size = 0
 		self.asm_offset = 0
-
 
 	def read(self, address: int, size: int) -> bytes:
 		"""
@@ -61,7 +61,6 @@ class MemoryBuffer:
 		:return: Bytes read from the buffer.
 		"""
 		return bytes(self.buffer[address:address + size])
-	
 
 	def write(self, address: int, data: bytes) -> None:
 		"""
@@ -83,10 +82,8 @@ class MemoryBuffer:
 		# adjust asm_size so it's inline when assembling
 		self.asm_size = max(self.asm_size, len(self.buffer))
 
-	
 	def delete_bytes(self, address: int, size: int) -> None:
 		del self.buffer[address:address + size]
-
 
 	def read_int(self, address: int, size: int = 4, signed: bool = False, big_endian=False) -> int:
 		"""
@@ -108,7 +105,6 @@ class MemoryBuffer:
 		prefix = ">" if big_endian else "<"
 		fmt = prefix + fmt
 		return struct.unpack(fmt, data)[0]
-	
 
 	def write_int(self, address, value, size=4, byteorder="little"):
 		"""
@@ -124,7 +120,6 @@ class MemoryBuffer:
 			is_signed = True
 		self.write(address, value.to_bytes(size, byteorder=byteorder, signed=is_signed))
 
-
 	def resolve_label(self, pos: int, address: int, size=4):
 		"""
 		Overrides a symbolic label in the buffer with its resolved address (used only at runtime)
@@ -135,7 +130,6 @@ class MemoryBuffer:
 
 		"""
 		self.buffer[pos:pos+4] = address.to_bytes(4, byteorder="little")
-
 
 	def resolve_ptr(self, base_address, offsets):
 		"""
@@ -154,8 +148,7 @@ class MemoryBuffer:
 		return address
 
 
-
-class ProcessMemory(ProcessFileScanner):
+class ProcessMemory(FileScanner):
 	"""
 	
 	Instance used when dealing with memory of a target process
@@ -167,7 +160,6 @@ class ProcessMemory(ProcessFileScanner):
 		self._psapi = ctypes.WinDLL("psapi.dll", use_last_error=True)
 		self.pid = pid																		# ProcessID
 		self.base_address = 0																# Base Address of Process
-		self.process_max_size_offset = 0x4FFF000											# Used for scanning
 		self._proc = self._kernel32.OpenProcess(PROCESS_ALL_ACCESS, False, self.pid)		# ProcessHandle
 		self._pe_path = self._get_module_filename()
 		super().__init__(self._pe_path)
@@ -323,6 +315,17 @@ class ProcessMemory(ProcessFileScanner):
 			self.memory_open()
 		self._kernel32.SetProcessWorkingSetSizeEx(self._proc, 1, mem_size, 6)
 
+	def set_process_priority(self, priority=NORMAL_PRIORITY_CLASS):
+		get_priority = self._kernel32.GetPriorityClass
+		get_priority.argtypes = [wintypes.HANDLE]
+		get_priority.restype = wintypes.DWORD
+
+		current_priority = get_priority(self._proc)
+		# only reset process priority to NORMAL if process has been marked as IDLE or BELOW_NORMAL
+		if current_priority in (IDLE_PRIORITY_CLASS, BELOW_NORMAL_PRIORITY_CLASS):
+			result = self._kernel32.SetPriorityClass(self._proc, priority)
+			if not result:
+				raise ctypes.WinError(f"Received an error when attempting to set process priority: {ctypes.get_last_error()}")
 
 	def allocate_memory(self, size: int, protect: int = PAGE_EXECUTE_READWRITE) -> int:
 		"""
@@ -355,7 +358,6 @@ class ProcessMemory(ProcessFileScanner):
 		entry_point = ctypes.cast(address, ctypes.c_void_p).value
 		print(f"entry point saved as -> 0x{entry_point:X}")
 		return entry_point
-	
 
 	def free_allocated_memory(self, address: int, size: int = 0, free_type: int = 0x8000) -> bool:
 		"""
@@ -383,7 +385,6 @@ class ProcessMemory(ProcessFileScanner):
 		if not success:
 			err = ctypes.get_last_error()
 			raise OSError(f"VirtualFreeEx failed at 0x{address:08X}, error code {err}")
-	
 
 	def write_buffer(self, address: int, mem_buffer: MemoryBuffer) -> None:
 		"""
@@ -405,57 +406,3 @@ class ProcessMemory(ProcessFileScanner):
 			err = ctypes.get_last_error()
 			print(f"Error received from WriteProcessMemory -> {err}")
 			raise OSError(f"WriteProcessMemory failed at 0x{address:X}")
-
-
-	def find_assertions(self, patterns: dict[str, list[str]]) -> dict[str, int]:
-		"""
-		Scans memory starting from self.base_address for strings matching provided patterns and captures pointers.
-
-		:param base: Starting address of the scan range.
-		:param patterns: Dictionary mapping keys to [file_hint, substring, return_type], where:
-			- file_hint (str): Currently unused, may point to a section name or source file.
-			- substring (str): Substring to match within dereferenced strings.
-			- return_type (str): "ptr" to return the dereferenced address, otherwise base address.
-		:param size: Size of the memory region to scan.
-		:return: Dictionary mapping each pattern key to the matching address (int).
-		"""
-		results = {}
-		for key, (file_hint, message, line_number, offset) in patterns.items():
-			results[key] = self.find_assertion(file_hint, message, line_number, offset)
-		return results
-
-
-	def find_assertion(self, file_hint: str, message: str, line_number: int, offset: int = 0) -> int:
-		"""
-		Build function signature based on data retrieved from .rdata then looks for that pattern in .text
-		
-		"""
-		msg_bytes = message.encode() + b'\x00'
-		file_bytes = file_hint.encode() + b'\x00'
-		msg_offset = self.read_section(".rdata").find(msg_bytes)
-		file_offset = self.read_section(".rdata").find(file_bytes)
-		if msg_offset == -1 or file_offset == -1:
-			return 0
-		
-		msg_va = self.image_base + self.sections[".rdata"][0] + msg_offset
-		file_va = self.image_base + self.sections[".rdata"][0] + file_offset
-
-		# encode push (optional line number), mov edx, mov ecx
-		pattern = bytearray()
-		mask = ""
-		if line_number:
-			if line_number <= 0xFF:
-				pattern += b"\x6A" + struct.pack("B", line_number)
-				mask += "xx"
-			else:
-				pattern += b"\x68" + struct.pack("<I", line_number)
-				mask += "xxxx"
-		
-		pattern += b"\xBA" + struct.pack("<I", msg_va)
-		mask += "x" + "x" * 4
-		pattern += b"\xB9" + struct.pack("<I", file_va)
-		mask += "x" + "x" * 4
-
-		# Scan .text for encoded pattern
-		address = self.find_in_section(".text", pattern, mask, offset)
-		return address
