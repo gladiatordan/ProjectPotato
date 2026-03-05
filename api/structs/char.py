@@ -53,4 +53,4 @@ class CharContext(Structure):
 	]
 
 	def __repr__(self):
-		return f"{self.__class__.__name__}:\n" + ", ".join(f"{name}={hex(getattr(self, name))}\n" for name, _ in self._fields_)
+		return f"{self.__class__.__name__}:\n" + ", ".join(f"{name}={getattr(self, name)}\n" for name, _ in self._fields_)
