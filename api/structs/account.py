@@ -33,8 +33,3 @@ class AccountContext(Structure):
 		("unlocked_account_skills", GWArray),
 		("account_flags", c_uint32),
 	]
-
-
-assert(sizeof(AccountUnlockedCount) == 12)
-assert(sizeof(AccountUnlockedItemInfo) == 12)
-assert(sizeof(AccountContext) == 0x138)

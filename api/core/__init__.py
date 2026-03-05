@@ -56,6 +56,7 @@ class Core:
 	def _read_scan_values(self):
 		"""Reads known offsets from the scan base and updates self.saved_values with the labels"""
 		# TODO - redo this
+		pass
 
 	def _read_modify_values(self):
 		"""Reads known offsets from the modify base address and updates self.saved_values with the labels"""

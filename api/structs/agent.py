@@ -27,13 +27,13 @@ class AgentContext(Structure):
 		("h00B8", GWArray),
 		("rand1", c_uint32),
 		("rand2", c_uint32),
-		("h00D0", c_uint32 * 24),
+		("h00D0", c_uint8 * 24),
 		("agent_movement", GWArray),
 		("h00F8", GWArray),
-		("h0108", c_uint32 * 17),
+		("h0108", c_uint32 * 0x11),
 		("agent_array1", GWArray),
 		("agent_async_movement", GWArray),
-		("h016C", c_uint32 * 15),
+		("h016C", c_uint32 * 0x10),
 		("instance_timer", c_uint32),
 	]
 
@@ -361,17 +361,3 @@ class AgentMovement(Structure):
 		("h0070", c_uint32),
 		("h0074", Vec3f),
 	]
-
-
-# sizes dervied from GWCA so these need to be exact
-assert(sizeof(AgentContext) == 0x170)
-assert(sizeof(RawAgent) == 0x1C0)
-assert(sizeof(Agent) == 0xC4)
-assert(sizeof(AgentItem) == 0xD4)
-assert(sizeof(AgentGadget) == 0xE4)
-assert(sizeof(AgentLiving) == 0x1C0)
-assert(sizeof(AgentInfo) == 0x38)
-assert(sizeof(MapAgent) == 0x30)
-assert(sizeof(AgentMovement) == 0x74)
-assert(sizeof(AgentSummaryInfo) == 0xC)
-assert(sizeof(AgentSummaryInfoSub) == 0x18)

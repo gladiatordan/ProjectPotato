@@ -17,7 +17,6 @@ class AgentType(IntEnum):
 	ITEM   = 0x400
 
 
-
 class AgentModelIDs(IntEnum):
 	# Value comes from Agent.player_number
 
@@ -31,5 +30,4 @@ class AgentModelIDs(IntEnum):
 	SPIRIT_FROZENSOIL = 2882
 	SPIRIT_QUICKSAND = 5718
 	SPIRIT_LACERATE = 4232
-
 

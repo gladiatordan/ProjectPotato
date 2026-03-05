@@ -17,7 +17,6 @@ class DyeInfo(Structure):
 		("dye4", c_uint8, 4),
 	]
 
-
 class Item(Structure):
 	_fields_ = [
 		("item_id", 				c_uint32),
@@ -61,7 +60,6 @@ class Item(Structure):
 	def is_zcoin(self) -> bool:
 		return self.model_file_id in [ItemModelID.ZCOIN_COPPER, ItemModelID.ZCOIN_SILVER, ItemModelID.ZCOIN_GOLD]
 
-
 class ItemData(Structure):
 	_fields_ = [
 		("model_file_id", c_uint32),
@@ -70,7 +68,6 @@ class ItemData(Structure):
 		("value", c_uint32),
 		("interaction", c_uint32),
 	]
-
 
 class ItemFormula(Structure):
 	_fields_ = [
@@ -81,7 +78,6 @@ class ItemFormula(Structure):
 		("material_cost_buffer", c_void_p),
 	]
 
-
 class MaterialCost(Structure):
 	_fields_ = [
 		("material", c_uint32),
@@ -89,7 +85,6 @@ class MaterialCost(Structure):
 		("h0008", c_uint32),
 		("h000C", c_uint32),
 	]
-
 
 class ItemContext(Structure):
 	_fields_ = [
@@ -106,7 +101,6 @@ class ItemContext(Structure):
 		("inventory", c_void_p),
 		("h00FC", GWArray),
 	]
-
 
 class Bag(Structure):
 	_fields_ = [
@@ -128,7 +122,6 @@ class Bag(Structure):
 	def is_material_storage(self) -> bool:
 		return self.bag_type == 5
 
-
 class ItemModifier(Structure):
 	_fields_ = [
 		("mod", c_uint32),
@@ -146,13 +139,11 @@ class ItemModifier(Structure):
 	def arg(self):
 		return (self.mod & 0x0000FFFF)
 
-
 class WeaponSet(Structure):
 	_fields_ = [
 		("weapon", c_void_p),
 		("offhand", c_void_p),
 	]
-
 
 class Inventory(Structure):
 	_fields_ = [
@@ -187,7 +178,6 @@ class Inventory(Structure):
 		("gold_character", c_uint32),
 		("gold_storage", c_uint32),
 	]
-
 
 class SalvageSessionInfo(Structure):
 	_fields_ = [

@@ -43,7 +43,6 @@ class PartyInfo(Structure):
 		("invite_link", TLink),
 	]
 
-
 class PartySearch(Structure):
 	_fields_ = [
 		("party_search_id", c_uint32),
@@ -61,7 +60,6 @@ class PartySearch(Structure):
 		("timestmap", c_uint32),
 	]
 
-
 class PlayerPartyMember(Structure):
 	_fields_ = [
 		("login_number", c_uint32),
@@ -75,7 +73,6 @@ class PlayerPartyMember(Structure):
 	def is_ticked(self) -> bool:
 		return (self.state & 2) > 0
 
-
 class HeroPartyMember(Structure):
 	_fields_ = [
 		("agent_id", c_uint32),
@@ -85,7 +82,6 @@ class HeroPartyMember(Structure):
 		("h0010", c_uint32),
 		("level", c_uint32),
 	]
-
 
 class HenchmanPartyMember(Structure):
 	_fields_ = [

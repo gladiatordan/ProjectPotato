@@ -1,5 +1,5 @@
 #stdlib
-from ctypes import Structure, c_uint32
+from ctypes import Structure, c_uint32, sizeof
 
 
 class Attribute(Structure):

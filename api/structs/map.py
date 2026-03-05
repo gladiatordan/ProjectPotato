@@ -22,7 +22,6 @@ class MapContext(Structure):
 		("zones", c_void_p),
 	]
 
-
 class PropsContext(Structure):
 	_fields_ = [
 		("pad1", c_uint32 * 27),
@@ -32,7 +31,6 @@ class PropsContext(Structure):
 		("h00B4", c_uint32 * 56),
 		("prop_array", GWArray),
 	]
-
 
 class MissionMapIcon(Structure):
 	_fields_ = [
@@ -47,7 +45,6 @@ class MissionMapIcon(Structure):
 		("h0020", c_uint32),
 		("h0024", c_uint32),
 	]
-
 
 class AreaInfo(Structure):
 	_fields_ = [

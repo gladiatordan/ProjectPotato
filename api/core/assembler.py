@@ -5,11 +5,14 @@ import re
 from .memory import MemoryBuffer
 
 
-
 class Assembler:
 	"""
 	
 	General Assembler class, encodes x86 asm instructions and adds them to a given MemoryBuffer instance
+
+	- Note that this is based on the GWA x86 Assembler that was hacked together,
+	  I intentionally made certain jmps (ljmps specifically, IIRC) resolve to incorrect opcodes to maintain
+	  parity with how GWA's assembler does it!
 	
 	"""
 	def __init__(self, buffer: MemoryBuffer):
@@ -29,19 +32,16 @@ class Assembler:
 			except ValueError:
 				return False
 
-
 	def _parse_immediate(self, value: str) -> int:
 		if value.startswith("0x") or value.startswith("-0x"):
 			return int(value, 16)
 		return int(value, 10 if value.isdigit() or value.startswith("-") else 16)
-
 
 	def _add_unresolved_jump(self, jump_type: str, label: str, orig_opcode: int) -> None:
 		# print(f"Adding unresolved {jump_type} at offset {self.buffer.asm_offset} -> dest is {label}")
 		# print(f"ORIGINAL JUMP CODE FOR UNRESOLVED: {hex(self.buffer.read_int(self.buffer.asm_offset - 2, size=2))}")
 		self.unresolved_jumps[self.buffer.asm_offset] = [label, jump_type, orig_opcode]
 		self.tracked_jumps[self.buffer.asm_offset] = self.buffer.asm_offset
-		
 
 	def _add_unresolved_label(self, label: str, add_to_payload: bool = True) -> None:
 		if label not in self.unresolved_labels:
@@ -54,7 +54,6 @@ class Assembler:
 			self.buffer.write_int(self.buffer.asm_offset, 0xDEADBEEF)
 			# finally, increment asm_offset for newly inserted label
 			self.buffer.asm_offset += 4
-
 
 	def add_pattern(self, pattern: str) -> None:
 		"""
@@ -76,7 +75,6 @@ class Assembler:
 
 		# print(f"Added scan pattern ({byte_length} bytes), padded to {len(final_pattern_b)} bytes")
 		
-
 	def add_label(self, name: str) -> None:
 		"""
 		Sets a label in the buffer for reference.
@@ -88,8 +86,6 @@ class Assembler:
 
 		"""
 		# register label at current offset for later resolution
-
-
 		size = 4
 		if "/" in name:
 			# It's a storage location
@@ -105,7 +101,6 @@ class Assembler:
 			pos = self.buffer.asm_offset
 			self.buffer.labels[name] = pos
 			# print(f"ADDED LABEL {name} AT OFFSET {self.buffer.labels[name]}")
-
 
 	def _encode_arithmetic(self, instruction: str) -> None:
 		reg_code = {
@@ -375,8 +370,6 @@ class Assembler:
 			case _:
 				raise NotImplementedError(f"arithmetic not implemented yet: {instruction}")
 		
-
-
 	def _encode_mov(self, instruction: str) -> None:
 		reg_code = {
 			# 32-bit
@@ -665,7 +658,6 @@ class Assembler:
 			case _:
 				raise NotImplementedError(f"mov not implemented yet: {instruction}")
 
-
 	def _encode_pop(self, instruction: str) -> None:
 		reg_code = {
 			"popad": 0x61,
@@ -728,7 +720,6 @@ class Assembler:
 
 			case _:
 				raise NotImplementedError(f"Unrecognized pop instruction: {instruction}")
-
 
 	def _encode_push(self, instruction: str) -> None:
 		reg_code = {
@@ -869,7 +860,6 @@ class Assembler:
 			case _:
 				raise NotImplementedError(f"Unrecognized push instruction: {instruction}")
 
-
 	def _encode_jump(self, instruction: str) -> None:
 		jump_codes = {
 			"jmp_rel8":  0xEB,
@@ -964,7 +954,6 @@ class Assembler:
 			case _:
 				raise NotImplementedError(f"Unrecognized jump not implemented: {instruction}")
 			
-
 	def _encode_lea(self, instruction: str) -> None:
 		reg_code = {
 			"eax": 0x00, "ecx": 0x01, "edx": 0x02, "ebx": 0x03,
@@ -1078,7 +1067,6 @@ class Assembler:
 			case _:
 				raise NotImplementedError(f"LEA format not implemented: {instruction}")
 
-
 	def _encode_call(self, instruction: str) -> None:
 		patterns = [
 			("call_deref", re.compile(r"^call\s+dword\s*\[\s*<(\w+)>\s*\]$")),
@@ -1115,7 +1103,6 @@ class Assembler:
 			case _:
 				raise NotImplementedError(f"Unsupported call format: {instruction}")
 
-
 	def _encode_retn(self, instruction: str) -> None:
 		match = re.fullmatch(r"ret(?:n)?(?:\s+(\d+))?", instruction.strip(), re.IGNORECASE)
 		if not match:
@@ -1133,7 +1120,6 @@ class Assembler:
 			self.buffer.write_int(self.buffer.asm_offset, int(imm, 16) & 0xFFFF, size=2)
 			self.buffer.asm_offset += 2
 
-
 	def _encode_nop(self, instruction: str) -> None:
 		match = re.fullmatch(r"nop(?:\s+(\d+))?", instruction.strip(), re.IGNORECASE)
 		if not match:
@@ -1143,7 +1129,6 @@ class Assembler:
 		for _ in range(count):
 			self.buffer.write_int(self.buffer.asm_offset, 0x90, size=1)
 			self.buffer.asm_offset += 1
-
 
 	def _encode_test(self, instruction: str) -> None:
 		match = re.fullmatch(r"test\s+\{([a-z0-9]{2,3})\},\{([a-z0-9]{2,3})\}", instruction.strip(), re.IGNORECASE)
@@ -1189,7 +1174,6 @@ class Assembler:
 		self.buffer.write_int(self.buffer.asm_offset, modrm, size=1)
 		self.buffer.asm_offset += 1
 
-	
 	def _encode_fld(self, instruction: str) -> None:
 		registers = {
 			'eax': 0, 'ecx': 1, 'edx': 2, 'ebx': 3,
@@ -1225,7 +1209,6 @@ class Assembler:
 				return
 
 		raise NotImplementedError(f"Unhandled fld variant in '{instruction}'")
-
 
 	def add_instruction(self, instruction: str) -> None:
 		"""
@@ -1286,7 +1269,6 @@ class Assembler:
 			raise NotImplementedError(f"Instruction fell through all handlers: {instruction}")
 		# print(f"ASM_OFFSET AFTER: {self.buffer.asm_offset}")
 	
-
 	def _resolve_jumps(self, base_address: int) -> None:
 		"""
 		Resolves relative jumps in the buffer.
@@ -1403,7 +1385,6 @@ class Assembler:
 			else:
 				raise Exception(f"Found jump type {j_type} but it doesn't need to be resolved!")
 
-
 	def _resolve_labels(self, base_address: int) -> None:
 		for label, positions in self.unresolved_labels.items():
 			if label not in self.buffer.labels:
@@ -1418,7 +1399,6 @@ class Assembler:
 			for pos in positions:
 				self.buffer.resolve_label(pos, final_addr)
 
-
 	def assemble(self, base_address: int) -> None:
 		"""
 		Resolves all tracked symbolic labels and replaces them with base_address + offset.
@@ -1431,15 +1411,3 @@ class Assembler:
 		# self._resolve_labels(base_address)
 		self._resolve_jumps(base_address)
 		self._resolve_labels(base_address)
-
-
-"""
-TODO 
-
-- x86 is fucking stupid
-- refactor assembler where appropriate
-- retest Scanner buffer once done
-- verify code cave buffer once relative jumps are fixed
-
-
-"""
