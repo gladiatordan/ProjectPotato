@@ -76,6 +76,9 @@ class GameContext(Context):
 	
 	def get_gadget_cxt(self) -> structs.GadgetContext:
 		return self.pmem.memory_read_struct(self.get_game_cxt().gadget, structs.GadgetContext)
+	
+	def get_char_cxt(self) -> structs.CharContext:
+		return self.pmem.memory_read_struct(self.get_game_cxt().character, structs.CharContext)
 
 	def get_guild_cxt(self) -> structs.GuildContext:
 		return self.pmem.memory_read_struct(self.get_game_cxt().guild, structs.GuildContext)

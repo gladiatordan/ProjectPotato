@@ -51,3 +51,6 @@ class CharContext(Structure):
 		("h034C", c_uint32 * 27),
 		("player_email", c_wchar * 64),
 	]
+
+	def __repr__(self):
+		return f"{self.__class__.__name__}:\n" + ", ".join(f"{name}={hex(getattr(self, name))}\n" for name, _ in self._fields_)
