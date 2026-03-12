@@ -10,6 +10,25 @@ class GWArray(Structure):
 		("m_param", c_uint32),
 	]
 
+class GWPointerBase(c_uint32):
+	_target_type = None
+
+	def is_null(self) -> bool:
+		return self.value == 0
+
+	def deref(self, pmem):
+		if self.value == 0:
+			return None
+		if self._target_type:
+			return pmem.memory_read_struct(self.value, self._target_type)
+		raise TypeError("No target type specified for pointer dereference!")
+	
+
+def GWPointer(target_type=None):
+	class _GWPointer(GWPointerBase):
+		_target_type = target_type
+	return _GWPointer
+
 
 class TLink(Structure):
 	_fields_ = [
@@ -61,19 +80,15 @@ class Sub2(Structure):
 from .account import *
 from .agent import *
 from .attribute import *
-from .char import *
 from .gadget import *
 from .game_entities import *
 from .game import *
-from .gameplay import *
 from .guild import *
 from .hero import *
 from .item import *
-from .map import *
 from .npc import *
 from .party import *
 from .player import *
-from .pregame import *
 from .quest import *
 from .skill import *
 from .title import *
