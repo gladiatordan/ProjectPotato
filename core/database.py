@@ -2,7 +2,8 @@
 
 ProjectPotato Database Module
 
-Provides a thread-safe DatabaseContext for services to access SQLite directly.
+Provides a process-safe DatabaseContext for services to access SQLite directly.
+Designed to be used strictly as a context manager engine.
 
 """
 import os
@@ -10,108 +11,97 @@ import sqlite3
 import logging
 from contextlib import contextmanager
 
-#TODO: REFACTOR THIS FOR SQLITE3
+
 class DatabaseContext:
-	_pool = None
-	_pool_pid = None  # Track which process created the pool
+	_db_path = os.getenv("PP_DB_PATH", "projectpotato.db")
+	_local_connections = {}  # Tracks connections by (PID, read_only)
 
 	@classmethod
-	def initialize(cls):
+	def initialize(cls, db_path=None):
 		"""
-		Initializes the connection pool. 
-		MUST be called once at the start of each Process (Web, Validation, etc).
+		Optional initialization to override the default database path.
 		"""
-		if cls._pool is None:
+		if db_path:
+			cls._db_path = db_path
+
+	@classmethod
+	def get_connection(cls, read_only=False):
+		"""
+		Gets a process-safe SQLite connection.
+		Creates a new connection if the PID has changed (fork detection) or if one doesn't exist.
+		"""
+		pid = os.getpid()
+		cache_key = (pid, read_only)
+		
+		# Fork Detection: Each process needs its own SQLite connection instance.
+		# If the current PID + mode isn't in our local dictionary, create a fresh connection.
+		if cache_key not in cls._local_connections:
 			try:
-				if cls._pool:
-					cls.close() # Close existing if any
+				# Use URI mode to enforce read-only if requested by BotServices
+				uri_path = f"file:{os.path.abspath(cls._db_path)}"
+				if read_only:
+					uri_path += "?mode=ro"
 					
-				# ThreadedConnectionPool allows multiple threads in Flask to share this pool safely.
-				cls._pool = psycopg2.pool.ThreadedConnectionPool(
-					minconn=1, 
-					maxconn=20, # Allow up to 20 concurrent connections per service
-					# mTLS Configuration
-					host=os.getenv("PP_DB_HOST", "127.0.0.1"),
-					database=os.getenv("PP_DB_NAME", "swgbuddy"),
-					user=os.getenv("PP_DB_USER", "swgbuddy_service"),
-					password=None, # Unused due to mTLS authentication
+				# timeout=15.0 allows connections to wait up to 15s if the DB is temporarily locked by a write
+				conn = sqlite3.connect(uri_path, uri=True, timeout=15.0)
+				
+				# sqlite3.Row provides dict-like access (equivalent to RealDictCursor)
+				conn.row_factory = sqlite3.Row  
+				
+				# Enable Write-Ahead Logging (WAL) on the write connection for better multiprocess concurrency
+				if not read_only:
+					conn.execute("PRAGMA journal_mode=WAL;")
+					conn.execute("PRAGMA synchronous=NORMAL;")
 					
-					cursor_factory=RealDictCursor
-				)
-				cls._pool_pid = os.getpid()
-				logging.info(f"[Database] Pool initialized for PID: {cls._pool_pid}")
-			except Exception as e:
-				logging.error(f"[Database] Init failed: {e}")
+				cls._local_connections[cache_key] = conn
+				logging.debug(f"[Database] SQLite Connection initialized for PID: {pid} (ReadOnly: {read_only})")
+				
+			except sqlite3.Error as e:
+				logging.error(f"[Database] Connection failed for PID {pid}: {e}")
 				raise
 
-	@classmethod
-	def close_all(cls):
-		"""Closes all connections in the pool (shutdown cleanup)."""
-		if cls._pool:
-			cls._pool.closeall()
-			cls._pool = None
-
-	@classmethod
-	def get_connection(cls):
-		"""Gets a connection, resetting pool if in a new process."""
-		current_pid = os.getpid()
-		
-		# Fork Detection: If PID changed, the pool is invalid (inherited). Reset it.
-		if cls._pool_pid != current_pid:
-			logging.warning(f"[Database] Fork detected (Old PID: {cls._pool_pid}, New: {current_pid}). Resetting pool.")
-			cls._pool = None
-			cls.initialize()
-
-		if not cls._pool:
-			cls.initialize()
-			
-		return cls._pool.getconn()
-
-	@classmethod
-	def return_connection(cls, conn):
-		"""Safely returns a connection to the pool."""
-		if cls._pool:
-			try:
-				cls._pool.putconn(conn)
-			except psycopg2.pool.PoolError:
-				# FIX: Connection belongs to a different/closed pool (e.g. after restart).
-				# Just close it silently to clean up resources.
-				try:
-					conn.close()
-				except:
-					pass
-			except Exception as e:
-				logging.error(f"[Database] Error returning connection: {e}")
-				# If return fails, try to close explicitly to prevent leaks
-				try:
-					conn.close()
-				except:
-					pass
+		return cls._local_connections[cache_key]
 
 	@classmethod
 	@contextmanager
-	def cursor(cls, commit=False):
-		"""Context manager for database operations."""
+	def cursor(cls, commit=False, read_only=False):
+		"""
+		Context manager for database operations.
+		
+		:param commit: If True, commits the transaction upon successful exit.
+		:param read_only: If True, opens the DB in read-only mode to prevent lock contention.
+		"""
 		conn = None
+		cur = None
 		try:
-			conn = cls.get_connection()
-			# Use RealDictCursor to access columns by name
-			with conn.cursor(cursor_factory=RealDictCursor) as cur:
-				yield cur
-				if commit:
-					conn.commit()
+			conn = cls.get_connection(read_only=read_only)
+			cur = conn.cursor()
+			
+			yield cur
+			
+			if commit and not read_only:
+				conn.commit()
+				
 		except Exception as e:
-			if conn:
+			if conn and not read_only:
 				conn.rollback()
-			logging.error(f"[Database] Query Error: {e}")
+			logging.error(f"[Database] Query Error in PID {os.getpid()}: {e}")
 			raise e
 		finally:
-			if conn:
-				cls.return_connection(conn)
+			if cur:
+				cur.close()
+			# We do NOT close the connection here.
+			# SQLite connections are lightweight but caching them per-process is faster.
 
 	@classmethod
-	def close(cls):
-		"""Closes all connections in the pool."""
-		if cls._pool:
-			cls._pool.closeall()
-			cls._pool = None
+	def close_all(cls):
+		"""Closes all cached connections for the current process (shutdown cleanup)."""
+		pid = os.getpid()
+		keys_to_remove = [k for k in cls._local_connections if k[0] == pid]
+		
+		for k in keys_to_remove:
+			try:
+				cls._local_connections[k].close()
+			except Exception as e:
+				logging.error(f"[Database] Error closing connection: {e}")
+			del cls._local_connections[k]
