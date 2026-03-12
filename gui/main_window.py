@@ -5,6 +5,37 @@ from pathlib import Path
 from Qt import QtWidgets, QtCore, QtGui
 
 
+class HorizontalWestTabBar(QtWidgets.QTabBar):
+    """West-positioned tab bar that keeps labels horizontal."""
+
+    def tabSizeHint(self, index):
+        s = QtWidgets.QTabBar.tabSizeHint(self, index)
+        s.transpose()
+        return s
+
+    def paintEvent(self, event):
+        painter = QtWidgets.QStylePainter(self)
+        opt = QtWidgets.QStyleOptionTab()
+
+        for i in range(self.count()):
+            self.initStyleOption(opt, i)
+            painter.drawControl(QtWidgets.QStyle.CE_TabBarTabShape, opt)
+            painter.save()
+
+            s = opt.rect.size()
+            s.transpose()
+            r = QtCore.QRect(QtCore.QPoint(), s)
+            r.moveCenter(opt.rect.center())
+            opt.rect = r
+
+            c = self.tabRect(i).center()
+            painter.translate(c)
+            painter.rotate(90)
+            painter.translate(-c)
+            painter.drawControl(QtWidgets.QStyle.CE_TabBarTabLabel, opt);
+            painter.restore()
+
+
 class TitleBar(QtWidgets.QFrame):
     def __init__(self, parent=None, version: str = "0.0.1"):
         super().__init__(parent)
@@ -14,37 +45,52 @@ class TitleBar(QtWidgets.QFrame):
 
     def _setup_ui(self):
         self.setObjectName("title_bar")
-        self.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Fixed)
+        self.setFixedHeight(84)
+        self.setSizePolicy(
+            QtWidgets.QSizePolicy.Policy.Expanding,
+            QtWidgets.QSizePolicy.Policy.Fixed,
+        )
 
         layout = QtWidgets.QHBoxLayout(self)
-        layout.setContentsMargins(14, 10, 14, 10)
+        layout.setContentsMargins(18, 10, 14, 10)
         layout.setSpacing(12)
 
-        self.left_spacer = QtWidgets.QWidget()
-        self.left_spacer.setObjectName("title_bar_left_spacer")
-        self.left_spacer.setFixedWidth(92)
-        layout.addWidget(self.left_spacer)
+        left_spacer = QtWidgets.QWidget()
+        left_spacer.setObjectName("title_bar_left_spacer")
+        left_spacer.setSizePolicy(
+            QtWidgets.QSizePolicy.Policy.Expanding,
+            QtWidgets.QSizePolicy.Policy.Preferred,
+        )
+        layout.addWidget(left_spacer, 1)
 
-        self.center_wrap = QtWidgets.QWidget()
-        self.center_wrap.setObjectName("title_center_wrap")
-        center_layout = QtWidgets.QHBoxLayout(self.center_wrap)
+        center_wrap = QtWidgets.QWidget()
+        center_wrap.setObjectName("title_center_wrap")
+        center_layout = QtWidgets.QHBoxLayout(center_wrap)
         center_layout.setContentsMargins(0, 0, 0, 0)
         center_layout.setSpacing(14)
 
         self.logo_label = QtWidgets.QLabel()
         self.logo_label.setObjectName("title_logo")
+        self.logo_label.setFixedSize(180, 56)
         self.logo_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.logo_label.setFixedSize(280, 88)
-        self.logo_label.setScaledContents(False)
-        self._load_logo()
+        center_layout.addWidget(self.logo_label)
 
         self.version_label = QtWidgets.QLabel(f"Version {self._version}")
         self.version_label.setObjectName("title_version")
-        self.version_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignVCenter | QtCore.Qt.AlignmentFlag.AlignLeft)
-
-        center_layout.addWidget(self.logo_label)
+        self.version_label.setAlignment(
+            QtCore.Qt.AlignmentFlag.AlignVCenter | QtCore.Qt.AlignmentFlag.AlignLeft
+        )
         center_layout.addWidget(self.version_label)
-        layout.addWidget(self.center_wrap, 1, QtCore.Qt.AlignmentFlag.AlignCenter)
+
+        layout.addWidget(center_wrap, 0, QtCore.Qt.AlignmentFlag.AlignCenter)
+
+        right_spacer = QtWidgets.QWidget()
+        right_spacer.setObjectName("title_bar_right_spacer")
+        right_spacer.setSizePolicy(
+            QtWidgets.QSizePolicy.Policy.Expanding,
+            QtWidgets.QSizePolicy.Policy.Preferred,
+        )
+        layout.addWidget(right_spacer, 1)
 
         self.controls = QtWidgets.QWidget()
         self.controls.setObjectName("title_controls")
@@ -54,22 +100,28 @@ class TitleBar(QtWidgets.QFrame):
 
         self.btn_minimize = QtWidgets.QPushButton("—")
         self.btn_minimize.setObjectName("btn_title_minimize")
-        self.btn_minimize.setFixedSize(40, 32)
         self.btn_close = QtWidgets.QPushButton("✕")
         self.btn_close.setObjectName("btn_title_close")
-        self.btn_close.setFixedSize(40, 32)
 
-        controls_layout.addWidget(self.btn_minimize)
-        controls_layout.addWidget(self.btn_close)
-        layout.addWidget(self.controls, 0, QtCore.Qt.AlignmentFlag.AlignRight)
+        for btn in (self.btn_minimize, self.btn_close):
+            btn.setFixedSize(40, 30)
+            controls_layout.addWidget(btn)
+
+        layout.addWidget(self.controls, 0, QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter)
 
         self.btn_minimize.clicked.connect(self._handle_minimize)
         self.btn_close.clicked.connect(self._handle_close)
+        self._load_logo()
 
-        QtCore.QTimer.singleShot(0, self._sync_spacer_width)
+    def _logo_path(self):
+        base = Path(__file__).resolve().parent / "assets"
+        cropped = base / "projectpotato_logo_header.png"
+        if cropped.exists():
+            return cropped
+        return base / "projectpotato_logo.png"
 
     def _load_logo(self):
-        logo_path = Path(__file__).resolve().parent / "assets" / "projectpotato_logo.png"
+        logo_path = self._logo_path()
         if not logo_path.exists():
             self.logo_label.setText("ProjectPotato")
             return
@@ -88,12 +140,7 @@ class TitleBar(QtWidgets.QFrame):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        self._sync_spacer_width()
-        if self.logo_label.pixmap() is not None:
-            self._load_logo()
-
-    def _sync_spacer_width(self):
-        self.left_spacer.setFixedWidth(max(92, self.controls.sizeHint().width()))
+        self._load_logo()
 
     def _window(self):
         return self.window()
@@ -166,11 +213,19 @@ class LauncherTab(QtWidgets.QWidget):
         ])
         header = self.table.horizontalHeader()
         header.setStretchLastSection(False)
+        header.setMinimumSectionSize(32)
         header.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeMode.Fixed)
-        header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeMode.Stretch)
-        for idx in (2, 3, 4, 5):
-            header.setSectionResizeMode(idx, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(4, QtWidgets.QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(5, QtWidgets.QHeaderView.ResizeMode.Fixed)
         self.table.setColumnWidth(0, 38)
+        self.table.setColumnWidth(1, 320)
+        self.table.setColumnWidth(2, 110)
+        self.table.setColumnWidth(3, 110)
+        self.table.setColumnWidth(4, 120)
+        self.table.setColumnWidth(5, 120)
         self.table.itemChanged.connect(self.check_selection_state)
         top_layout.addWidget(self.table)
 
@@ -180,20 +235,18 @@ class LauncherTab(QtWidgets.QWidget):
         self.btn_launch_sel.setObjectName("btn_launch")
         self.btn_update_sel = QtWidgets.QPushButton("Update Selected")
         self.btn_update_sel.setObjectName("btn_tools")
-        self.btn_settings = QtWidgets.QPushButton("Settings")
-        self.btn_settings.setObjectName("btn_settings")
 
+        self.btn_launch_sel.setMinimumWidth(140)
+        self.btn_update_sel.setMinimumWidth(140)
         self.btn_launch_sel.setEnabled(False)
         self.btn_update_sel.setEnabled(False)
 
         self.btn_launch_sel.clicked.connect(lambda: self.request_action("LAUNCH_SELECTED"))
         self.btn_update_sel.clicked.connect(lambda: self.request_action("UPDATE_SELECTED"))
-        self.btn_settings.clicked.connect(lambda: self.request_action("OPEN_SETTINGS"))
 
         btn_layout.addWidget(self.btn_launch_sel)
         btn_layout.addWidget(self.btn_update_sel)
         btn_layout.addStretch()
-        btn_layout.addWidget(self.btn_settings)
         top_layout.addLayout(btn_layout)
 
         self.splitter.addWidget(top_widget)
@@ -225,17 +278,27 @@ class LauncherTab(QtWidgets.QWidget):
 
         btn_launch = QtWidgets.QPushButton("Launch")
         btn_launch.setObjectName("btn_primary")
+        btn_launch.setMinimumWidth(96)
         btn_launch.clicked.connect(lambda: self.request_action("LAUNCH", account_name))
-        self.table.setCellWidget(row, 4, btn_launch)
+        self.table.setCellWidget(row, 4, self._wrap_cell_widget(btn_launch))
 
         btn_update = QtWidgets.QPushButton("Update")
         btn_update.setObjectName("btn_tools")
+        btn_update.setMinimumWidth(96)
         btn_update.setEnabled(False)
         btn_update.clicked.connect(lambda: self.request_action("UPDATE", account_name))
-        self.table.setCellWidget(row, 5, btn_update)
+        self.table.setCellWidget(row, 5, self._wrap_cell_widget(btn_update))
 
         self.table.blockSignals(False)
         self.check_selection_state()
+
+    def _wrap_cell_widget(self, inner):
+        widget = QtWidgets.QWidget()
+        layout = QtWidgets.QHBoxLayout(widget)
+        layout.setContentsMargins(8, 4, 8, 4)
+        layout.addWidget(inner)
+        layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        return widget
 
     def _create_centered_checkbox(self):
         widget = QtWidgets.QWidget()
@@ -309,7 +372,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         outer = QtWidgets.QWidget()
         outer_layout = QtWidgets.QVBoxLayout(outer)
-        outer_layout.setContentsMargins(18, 18, 18, 18)
+        outer_layout.setContentsMargins(14, 14, 14, 14)
         outer_layout.setSpacing(0)
         self.setCentralWidget(outer)
 
@@ -325,22 +388,28 @@ class MainWindow(QtWidgets.QMainWindow):
 
         body = QtWidgets.QWidget()
         body_layout = QtWidgets.QVBoxLayout(body)
-        body_layout.setContentsMargins(16, 0, 16, 16)
-        body_layout.setSpacing(12)
+        body_layout.setContentsMargins(8, 8, 8, 8)
+        body_layout.setSpacing(10)
         shell_layout.addWidget(body)
 
         self.tabs = QtWidgets.QTabWidget()
         self.tabs.setObjectName("main_tabs")
-        self.tabs.setTabPosition(QtWidgets.QTabWidget.TabPosition.West)
+        self.tabs.setTabPosition(QtWidgets.QTabWidget.West)
+        self.tabs.setTabBar(HorizontalWestTabBar())
 
         self.launcher_tab = LauncherTab()
         self.workers_tab = PlaceholderTab(
             "Workers",
             "Worker controls will live here. The placement is preserved, but the paneling and spacing are cleaned up so the tab reads like the rest of the launcher.",
         )
+        self.settings_tab = PlaceholderTab(
+            "Settings",
+            "Settings layout is intentionally left blank for now. This tab is in place so the navigation matches the intended shell.",
+        )
 
         self.tabs.addTab(self.launcher_tab, "Launcher")
         self.tabs.addTab(self.workers_tab, "Workers")
+        self.tabs.addTab(self.settings_tab, "Settings")
         body_layout.addWidget(self.tabs)
 
     def mousePressEvent(self, event):

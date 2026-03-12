@@ -15,7 +15,7 @@ class BotService(Service):
     def __init__(self, inbound, outbound, account_name):
         super().__init__(inbound, outbound)
         self.account_name = account_name
-        self.api = GWAPY()
+        # self.api = GWAPY()
 
     def run(self):
         self.info(f"BotService starting for {self.account_name}")

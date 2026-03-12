@@ -51,7 +51,7 @@ class GUIService(Service):
 		self.window = MainWindow()
 		
 		# (Optional) Tag the settings button so our CSS can apply alternative styling to it
-		self.window.launcher_tab.btn_settings.setObjectName("btn_settings")
+		# self.window.launcher_tab.btn_settings.setObjectName("btn_settings")
 		
 		self.window.launcher_tab.action_requested.connect(self.handle_ui_action)
 		self.window.show()

@@ -15,7 +15,7 @@ QMainWindow {
 
 QFrame#window_shell {
     background-color: #0A0D12;
-    border: 1px solid #24303C;
+    border: none;
     border-radius: 14px;
 }
 
@@ -33,7 +33,8 @@ QFrame#title_bar {
 
 QWidget#title_center_wrap,
 QWidget#title_controls,
-QWidget#title_bar_left_spacer {
+QWidget#title_bar_left_spacer,
+QWidget#title_bar_right_spacer {
     background: transparent;
 }
 
@@ -42,10 +43,10 @@ QLabel#title_logo {
 }
 
 QLabel#title_version {
-    color: #A8BBD0;
-    font-size: 15px;
-    font-weight: 600;
-    letter-spacing: 0.5px;
+    color: #DCE6F2;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
 }
 
 QPushButton#btn_title_minimize,
@@ -79,13 +80,14 @@ QTabWidget#main_tabs::pane {
 QTabBar::tab {
     background: #0E141D;
     color: #91A1B2;
-    padding: 14px 18px;
+    padding: 0px 16px;
     border: 1px solid #202A36;
     border-right: none;
     border-top-left-radius: 8px;
     border-bottom-left-radius: 8px;
     margin: 3px 0px;
-    min-width: 108px;
+    min-width: 132px;
+    min-height: 54px;
     font-weight: 600;
 }
 
@@ -95,14 +97,12 @@ QTabBar::tab:selected {
     border: 1px solid #33506B;
     border-right: none;
     border-left: 3px solid #58AEEE;
-    padding-left: 16px;
 }
 
 QTabBar::tab:hover:!selected {
     background: #151D29;
     color: #DDE6F0;
     border-left: 3px solid #2E6FA3;
-    padding-left: 16px;
 }
 
 QFrame#launcher_surface,
@@ -198,17 +198,6 @@ QPushButton#btn_launch:hover,
 QPushButton#btn_start:hover {
     background-color: #456885;
     border: 1px solid #8ED1FF;
-}
-
-QPushButton#btn_settings {
-    background-color: #18212D;
-    color: #D0D9E4;
-    border: 1px solid #344252;
-}
-
-QPushButton#btn_settings:hover {
-    background-color: #212C39;
-    border: 1px solid #4B627A;
 }
 
 QPushButton#btn_tools,
