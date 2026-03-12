@@ -1,0 +1,325 @@
+/* =========================================================
+   ProjectPotato - Guild Wars 1 inspired dark steel theme
+   Palette basis:
+   - void black / blue-black backgrounds
+   - cold steel text
+   - slate-blue surfaces
+   - electric blue accent glow
+   - muted bronze secondary accent
+   ========================================================= */
+
+/* --- Global Widget Styles --- */
+QWidget {
+    background-color: #0A0D12;
+    color: #D6DCE5;
+    font-family: "Segoe UI", Arial, sans-serif;
+    font-size: 13px;
+}
+
+/* Optional base containers */
+QMainWindow, QFrame {
+    background-color: #0A0D12;
+}
+
+/* --- Tabs --- */
+QTabWidget::pane {
+    border: 1px solid #2A3442;
+    background: #111722;
+    top: -1px;
+}
+
+QTabBar::tab {
+    background: #0D121A;
+    color: #8F9BAA;
+    padding: 12px 20px;
+    border: 1px solid #202A36;
+    border-bottom: none;
+    margin-right: 2px;
+    min-width: 90px;
+}
+
+QTabBar::tab:selected {
+    background: #111722;
+    color: #E5ECF5;
+    border: 1px solid #35506A;
+    border-bottom: 1px solid #111722;
+    border-top: 2px solid #55A7E8;
+    font-weight: bold;
+}
+
+QTabBar::tab:hover:!selected {
+    background: #151D29;
+    color: #D6DCE5;
+    border-top: 2px solid #2E6FA3;
+}
+
+/* --- Table Widget --- */
+QTableWidget {
+    background-color: #101620;
+    alternate-background-color: #131C28;
+    border: 1px solid #2A3442;
+    gridline-color: #24303D;
+    color: #D6DCE5;
+    selection-background-color: #1E3A52;
+    selection-color: #F2F6FB;
+    outline: 0;
+}
+
+QHeaderView::section {
+    background-color: #0D121A;
+    color: #C6D0DB;
+    padding: 6px;
+    border: 1px solid #24303D;
+    font-weight: bold;
+}
+
+QTableCornerButton::section {
+    background-color: #0D121A;
+    border: 1px solid #24303D;
+}
+
+/* --- Buttons --- */
+QPushButton {
+    background-color: #2C4358;
+    color: #E7EEF7;
+    border: 1px solid #3E6383;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-weight: bold;
+}
+
+QPushButton:hover {
+    background-color: #35506A;
+    border: 1px solid #55A7E8;
+}
+
+QPushButton:pressed {
+    background-color: #233648;
+    border: 1px solid #3C86C2;
+}
+
+QPushButton:disabled {
+    background-color: #161C24;
+    color: #66717D;
+    border: 1px solid #232C36;
+}
+
+/* Primary/action buttons if you want stronger emphasis */
+QPushButton#btn_primary,
+QPushButton#btn_launch,
+QPushButton#btn_start {
+    background-color: #3A5772;
+    border: 1px solid #61B4F0;
+    color: #F3F8FD;
+}
+
+QPushButton#btn_primary:hover,
+QPushButton#btn_launch:hover,
+QPushButton#btn_start:hover {
+    background-color: #446787;
+    border: 1px solid #89CBFF;
+}
+
+/* Secondary/settings button */
+QPushButton#btn_settings {
+    background-color: #1A2230;
+    color: #C9D2DD;
+    border: 1px solid #334150;
+}
+
+QPushButton#btn_settings:hover {
+    background-color: #222D3C;
+    border: 1px solid #4E647B;
+}
+
+/* Bronze/gold utility button variant, use sparingly */
+QPushButton#btn_warning,
+QPushButton#btn_tools {
+    background-color: #5A4831;
+    color: #F2E7D7;
+    border: 1px solid #8A6B45;
+}
+
+QPushButton#btn_warning:hover,
+QPushButton#btn_tools:hover {
+    background-color: #6A563A;
+    border: 1px solid #B28B56;
+}
+
+/* --- Text Inputs / Editors --- */
+QLineEdit,
+QPlainTextEdit,
+QTextEdit,
+QAbstractSpinBox,
+QComboBox {
+    background-color: #0B1017;
+    color: #D6DCE5;
+    border: 1px solid #2A3442;
+    padding: 4px 6px;
+    selection-background-color: #244866;
+    selection-color: #F5FAFF;
+}
+
+QLineEdit:focus,
+QPlainTextEdit:focus,
+QTextEdit:focus,
+QAbstractSpinBox:focus,
+QComboBox:focus {
+    border: 1px solid #55A7E8;
+}
+
+/* Console-specific */
+QTextEdit#console,
+QPlainTextEdit#console {
+    background-color: #070A0F;
+    color: #9FB1C3;
+    font-family: Consolas, "Courier New", monospace;
+    border: 1px solid #24303D;
+}
+
+/* --- ComboBox Dropdown --- */
+QComboBox {
+    padding-right: 20px;
+}
+
+QComboBox::drop-down {
+    border: none;
+    width: 18px;
+    background: transparent;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #101620;
+    color: #D6DCE5;
+    border: 1px solid #2A3442;
+    selection-background-color: #1E3A52;
+}
+
+/* --- Scrollbars --- */
+QScrollBar:vertical {
+    background: #0B1017;
+    width: 12px;
+    margin: 0px;
+}
+
+QScrollBar::handle:vertical {
+    background: #2A3442;
+    min-height: 20px;
+    border-radius: 5px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #3A5066;
+}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical {
+    height: 0px;
+    background: none;
+    border: none;
+}
+
+QScrollBar:horizontal {
+    background: #0B1017;
+    height: 12px;
+    margin: 0px;
+}
+
+QScrollBar::handle:horizontal {
+    background: #2A3442;
+    min-width: 20px;
+    border-radius: 5px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background: #3A5066;
+}
+
+QScrollBar::add-line:horizontal,
+QScrollBar::sub-line:horizontal {
+    width: 0px;
+    background: none;
+    border: none;
+}
+
+/* --- Splitter --- */
+QSplitter::handle {
+    background-color: #24303D;
+}
+
+QSplitter::handle:hover {
+    background-color: #35506A;
+}
+
+/* --- Checkboxes --- */
+QCheckBox {
+    spacing: 6px;
+    color: #D6DCE5;
+}
+
+QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #5A6878;
+    border-radius: 3px;
+    background-color: #0D121A;
+}
+
+QCheckBox::indicator:hover {
+    border: 1px solid #78BDF3;
+}
+
+QCheckBox::indicator:checked {
+    background-color: #55A7E8;
+    border: 1px solid #55A7E8;
+}
+
+/* --- Radio Buttons --- */
+QRadioButton {
+    spacing: 6px;
+    color: #D6DCE5;
+}
+
+QRadioButton::indicator {
+    width: 15px;
+    height: 15px;
+    border: 1px solid #5A6878;
+    border-radius: 7px;
+    background-color: #0D121A;
+}
+
+QRadioButton::indicator:checked {
+    background-color: #55A7E8;
+    border: 1px solid #55A7E8;
+}
+
+/* --- Group Boxes --- */
+QGroupBox {
+    border: 1px solid #2A3442;
+    border-radius: 4px;
+    margin-top: 10px;
+    padding-top: 12px;
+    color: #DCE4ED;
+    font-weight: bold;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 10px;
+    padding: 0 4px;
+    color: #9FC3E2;
+}
+
+/* --- Status / Tool Tips --- */
+QStatusBar {
+    background-color: #0D121A;
+    color: #AAB6C3;
+    border-top: 1px solid #202A36;
+}
+
+QToolTip {
+    background-color: #18212C;
+    color: #EAF2FA;
+    border: 1px solid #4B6A88;
+    padding: 4px 6px;
+}
