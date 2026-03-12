@@ -8,7 +8,6 @@ Designed for Monolithic Multiprocessing.
 """
 import json
 import inspect
-import sys
 import multiprocessing
 
 
@@ -42,11 +41,11 @@ class Core(Serializable):
 	Builtin log message routing
 	
 	"""
-	def __init__(self, router_queue=None):
+	def __init__(self, inbound: multiprocessing.Queue=None, outbound: multiprocessing.Queue=None):
 		self.mod = self._get_caller_module()
 		self.id = self._get_id()
-		self.inbound = multiprocessing.Queue()
-		self.router_outbound = router_queue
+		self.inbound = inbound
+		self.outbound = outbound
 		super().__init__()
 
 	def _generate_id(self):
@@ -70,8 +69,8 @@ class Core(Serializable):
 		return None
 	
 	def _send_message(self, message):
-		if self.router_outbound:
-			self.router_outbound.put(message)
+		if self.outbound:
+			self.outbound.put(message)
 	
 	def _send_log(self, level, message):
 		"""
