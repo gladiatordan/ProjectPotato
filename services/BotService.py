@@ -1,6 +1,6 @@
 """
 
-Project Potato DatabaseService module
+Project Potato BotService module
 
 """
 #stdlib
@@ -10,12 +10,11 @@ from core.database import DatabaseContext
 from core.service import Service
 
 
-class DatabaseService(Service):
+class BotService(Service):
 	"""
 	
-	DatabaseService
+	BotService
 
-	
 	"""
 	def __init__(self):
 		pass
