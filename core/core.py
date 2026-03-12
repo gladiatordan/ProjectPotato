@@ -43,14 +43,14 @@ class Core(Serializable):
 	"""
 	def __init__(self, inbound: multiprocessing.Queue=None, outbound: multiprocessing.Queue=None):
 		self.mod = self._get_caller_module()
-		self.id = self._get_id()
+		# self.id = self._generate_id()
 		self.inbound = inbound
 		self.outbound = outbound
 		super().__init__()
 
 	def _generate_id(self):
 		# TODO: IMPLEMENT THIS
-		pass
+		raise NotImplementedError(f"{self.__class__.__name__} generate_id not implemented!")
 
 	def _get_caller_module(self):
 		"""

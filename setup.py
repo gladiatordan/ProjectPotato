@@ -9,7 +9,8 @@ setup(
         "psutil",
         "pywin32",
 		"discord.py",
-		"Qt.py"
+		"Qt.py",
+		"PyQt5"
     ],
 	package_data={}
 )

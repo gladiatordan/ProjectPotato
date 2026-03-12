@@ -7,7 +7,7 @@ ProjectPotato Service Module
 import multiprocessing
 
 #mylib
-from core import Core
+from .core import Core
 
 
 class Service(Core):
