@@ -24,8 +24,12 @@ public:
         auto* contentStack = new QStackedWidget();
 
         // Placeholder for the "Worker Grid"
-        auto* dashboard = new QWidget();
-        contentStack->addWidget(dashboard);
+        // Replace the dashboard placeholder
+        auto* dashboard = new WorkerGrid();
+        contentStack->addWidget(dashboard); // Index 0: Dashboard
+        contentStack->addWidget(new QLabel("Account Manager Stub")); // Index 1: Accounts
+        contentStack->addWidget(new QLabel("Settings Stub"));        // Index 2: Settings
+        contentStack->addWidget(new QLabel("Log Console Stub"));     // Index 3: Logs
 
         layout->addWidget(sidebar);
         layout->addWidget(contentStack);
