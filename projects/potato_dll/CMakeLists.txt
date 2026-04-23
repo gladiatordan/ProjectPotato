@@ -1,8 +1,18 @@
+# 1. Enable Qt's Meta-Object Compiler (CRITICAL for Q_OBJECT macros)
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTORCC ON)
+
+# 2. Explicitly list all your source AND header files
 add_library(ProjectPotatoDLL SHARED
     src/main.cpp
     src/main_window.hpp
+    src/services.hpp
     src/worker_grid.hpp
 )
+
+# 3. Tell CMake and MOC exactly where to look for include files
+target_include_directories(ProjectPotatoDLL PRIVATE src)
 
 target_link_libraries(ProjectPotatoDLL PRIVATE 
     potato_shared
@@ -14,7 +24,7 @@ target_link_libraries(ProjectPotatoDLL PRIVATE
 # Enforce 4-byte alignment for 32-bit compat as per plan
 target_compile_options(ProjectPotatoDLL PRIVATE /Zp4)
 
-# Force the DLL to output to the shared bin folder
+# Force output to the shared bin directory
 set_target_properties(ProjectPotatoDLL PROPERTIES 
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
