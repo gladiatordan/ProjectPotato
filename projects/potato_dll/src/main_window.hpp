@@ -4,6 +4,7 @@
 #include <QtWidgets/QStackedWidget>
 #include <QtWidgets/QHBoxLayout>
 #include "services.hpp"
+#include "worker_grid.hpp"
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
