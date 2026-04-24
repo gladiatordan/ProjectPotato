@@ -1,0 +1,42 @@
+<RCC>
+    <qresource prefix="/">
+        <file alias="style.qss">style.qss</file>
+        <file>assets/header/projectpotato_header_full.png</file>
+        <file>assets/window_controls/minimize_normal.png</file>
+        <file>assets/window_controls/minimize_hover.png</file>
+        <file>assets/window_controls/maximize_normal.png</file>
+        <file>assets/window_controls/maximize_hover.png</file>
+        <file>assets/window_controls/close_normal.png</file>
+        <file>assets/window_controls/close_hover.png</file>
+        <file>assets/borders/main/tl.png</file>
+        <file>assets/borders/main/t.png</file>
+        <file>assets/borders/main/tr.png</file>
+        <file>assets/borders/main/l.png</file>
+        <file>assets/borders/main/c.png</file>
+        <file>assets/borders/main/r.png</file>
+        <file>assets/borders/main/bl.png</file>
+        <file>assets/borders/main/b.png</file>
+        <file>assets/borders/main/br.png</file>
+        <file>assets/borders/panel/tl.png</file>
+        <file>assets/borders/panel/t.png</file>
+        <file>assets/borders/panel/tr.png</file>
+        <file>assets/borders/panel/l.png</file>
+        <file>assets/borders/panel/c.png</file>
+        <file>assets/borders/panel/r.png</file>
+        <file>assets/borders/panel/bl.png</file>
+        <file>assets/borders/panel/b.png</file>
+        <file>assets/borders/panel/br.png</file>
+        <file>assets/sidebar/launcher_active_full.png</file>
+        <file>assets/sidebar/workers_normal_full.png</file>
+        <file>assets/sidebar/settings_normal_full.png</file>
+        <file>assets/sidebar/tab_active_blank.png</file>
+        <file>assets/sidebar/tab_normal_blank.png</file>
+        <file>assets/buttons/launch_normal.png</file>
+        <file>assets/buttons/launch_hover.png</file>
+        <file>assets/buttons/update_normal.png</file>
+        <file>assets/buttons/update_hover.png</file>
+        <file>assets/checkboxes/empty.png</file>
+        <file>assets/checkboxes/checked.png</file>
+        <file>assets/inputs/dropdown_normal.png</file>
+    </qresource>
+</RCC>

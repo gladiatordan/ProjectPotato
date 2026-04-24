@@ -8,11 +8,11 @@
 namespace projectpotato::ui::widgets {
 
 LogConsole::LogConsole(QWidget* parent)
-    : QWidget(parent) {
-    setProperty("class", "panel");
+    : NineSliceFrame(NineSliceFrame::Skin::Panel, parent) {
+    setObjectName("LogConsoleFrame");
 
     auto* layout = new QVBoxLayout(this);
-    layout->setContentsMargins(18, 18, 18, 18);
+    layout->setContentsMargins(22, 22, 22, 22);
     layout->setSpacing(12);
 
     titleLabel_ = new QLabel("Session Log", this);

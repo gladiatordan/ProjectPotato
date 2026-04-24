@@ -6,6 +6,8 @@
 #include <QPushButton>
 #include <QVBoxLayout>
 
+#include "ui/widgets/NineSliceFrame.hpp"
+
 namespace projectpotato::ui::pages {
 
 SettingsPage::SettingsPage(QWidget* parent)
@@ -14,11 +16,12 @@ SettingsPage::SettingsPage(QWidget* parent)
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(16);
 
-    auto* diagnosticsPanel = new QWidget(this);
-    diagnosticsPanel->setProperty("class", "panel");
+    auto* diagnosticsPanel = new projectpotato::ui::widgets::NineSliceFrame(
+        projectpotato::ui::widgets::NineSliceFrame::Skin::Panel, this);
+    diagnosticsPanel->setObjectName("SettingsPanel");
 
     auto* diagnosticsLayout = new QVBoxLayout(diagnosticsPanel);
-    diagnosticsLayout->setContentsMargins(20, 20, 20, 20);
+    diagnosticsLayout->setContentsMargins(22, 22, 22, 22);
     diagnosticsLayout->setSpacing(14);
 
     auto* titleLabel = new QLabel("Developer Diagnostics", diagnosticsPanel);

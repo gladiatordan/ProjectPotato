@@ -14,6 +14,7 @@
 #include "ui/pages/LauncherPage.hpp"
 #include "ui/pages/SettingsPage.hpp"
 #include "ui/pages/WorkersPage.hpp"
+#include "ui/widgets/NineSliceFrame.hpp"
 #include "ui/widgets/PotatoHeader.hpp"
 #include "ui/widgets/PotatoSidebar.hpp"
 #include "ui/widgets/PotatoWindowControls.hpp"
@@ -27,12 +28,12 @@ MainWindow::MainWindow(QWidget* parent)
     setMinimumSize(1280, 820);
     resize(1480, 920);
 
-    auto* shell = new QWidget(this);
+    auto* shell = new widgets::NineSliceFrame(widgets::NineSliceFrame::Skin::Main, this);
     shell->setObjectName("WindowShell");
 
     auto* shellLayout = new QVBoxLayout(shell);
-    shellLayout->setContentsMargins(1, 1, 1, 1);
-    shellLayout->setSpacing(0);
+    shellLayout->setContentsMargins(14, 14, 14, 14);
+    shellLayout->setSpacing(10);
 
     header_ = new widgets::PotatoHeader(shell);
     sidebar_ = new widgets::PotatoSidebar(shell);
@@ -51,7 +52,7 @@ MainWindow::MainWindow(QWidget* parent)
 
     auto* bodyLayout = new QHBoxLayout(bodyContainer);
     bodyLayout->setContentsMargins(0, 0, 0, 0);
-    bodyLayout->setSpacing(0);
+    bodyLayout->setSpacing(12);
     bodyLayout->addWidget(sidebar_);
     bodyLayout->addWidget(pageStack_, 1);
 

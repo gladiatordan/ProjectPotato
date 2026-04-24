@@ -1,13 +1,13 @@
 #pragma once
 
-#include <QWidget>
+#include "ui/widgets/NineSliceFrame.hpp"
 
 class QLabel;
 class QPlainTextEdit;
 
 namespace projectpotato::ui::widgets {
 
-class LogConsole final : public QWidget {
+class LogConsole final : public NineSliceFrame {
     Q_OBJECT
 
 public:

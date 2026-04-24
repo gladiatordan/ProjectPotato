@@ -63,13 +63,15 @@ qt_add_executable(ProjectPotato
     src/ui/pages/WorkersPage.hpp
     src/ui/widgets/LogConsole.cpp
     src/ui/widgets/LogConsole.hpp
+    src/ui/widgets/NineSliceFrame.cpp
+    src/ui/widgets/NineSliceFrame.hpp
     src/ui/widgets/PotatoHeader.cpp
     src/ui/widgets/PotatoHeader.hpp
     src/ui/widgets/PotatoSidebar.cpp
     src/ui/widgets/PotatoSidebar.hpp
     src/ui/widgets/PotatoWindowControls.cpp
     src/ui/widgets/PotatoWindowControls.hpp
-    src/resources/resources.qrc
+    resources/resources.qrc
 )
 
 target_include_directories(ProjectPotato PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)

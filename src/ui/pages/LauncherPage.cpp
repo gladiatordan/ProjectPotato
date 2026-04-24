@@ -11,6 +11,7 @@
 #include "ui/delegates/CharacterComboDelegate.hpp"
 #include "ui/models/AccountTableModel.hpp"
 #include "ui/widgets/LogConsole.hpp"
+#include "ui/widgets/NineSliceFrame.hpp"
 
 namespace projectpotato::ui::pages {
 
@@ -20,21 +21,16 @@ LauncherPage::LauncherPage(QWidget* parent)
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(16);
 
-    auto* accountsPanel = new QWidget(this);
-    accountsPanel->setProperty("class", "panel");
+    auto* accountsPanel = new projectpotato::ui::widgets::NineSliceFrame(
+        projectpotato::ui::widgets::NineSliceFrame::Skin::Panel, this);
+    accountsPanel->setObjectName("AccountsPanel");
 
     auto* accountsLayout = new QVBoxLayout(accountsPanel);
-    accountsLayout->setContentsMargins(20, 20, 20, 20);
-    accountsLayout->setSpacing(12);
+    accountsLayout->setContentsMargins(22, 22, 22, 20);
+    accountsLayout->setSpacing(10);
 
     auto* titleLabel = new QLabel("Accounts", accountsPanel);
     titleLabel->setProperty("class", "sectionTitle");
-
-    auto* descriptionLabel = new QLabel(
-        "This Phase 1 table is the locked launcher layout: account selection, character choice, injection toggles, and placeholder launch/update actions routed into the service harness.",
-        accountsPanel);
-    descriptionLabel->setWordWrap(true);
-    descriptionLabel->setProperty("class", "sectionBody");
 
     model_ = new projectpotato::ui::models::AccountTableModel(this);
     accountTable_ = new QTableView(accountsPanel);
@@ -45,14 +41,14 @@ LauncherPage::LauncherPage(QWidget* parent)
     configureTable();
 
     accountsLayout->addWidget(titleLabel);
-    accountsLayout->addWidget(descriptionLabel);
     accountsLayout->addWidget(accountTable_, 1);
 
-    auto* actionsPanel = new QWidget(this);
-    actionsPanel->setProperty("class", "panel");
+    auto* actionsPanel = new projectpotato::ui::widgets::NineSliceFrame(
+        projectpotato::ui::widgets::NineSliceFrame::Skin::Panel, this);
+    actionsPanel->setObjectName("ActionsPanel");
 
     auto* actionsLayout = new QHBoxLayout(actionsPanel);
-    actionsLayout->setContentsMargins(18, 16, 18, 16);
+    actionsLayout->setContentsMargins(20, 18, 20, 18);
     actionsLayout->setSpacing(12);
 
     launchSelectedButton_ = new QPushButton("Launch Selected", actionsPanel);
@@ -101,10 +97,11 @@ void LauncherPage::configureTable() {
     accountTable_->setSelectionBehavior(QAbstractItemView::SelectRows);
     accountTable_->setSelectionMode(QAbstractItemView::SingleSelection);
     accountTable_->setSortingEnabled(false);
+    accountTable_->setMouseTracking(true);
     accountTable_->setShowGrid(false);
     accountTable_->setWordWrap(false);
     accountTable_->verticalHeader()->setVisible(false);
-    accountTable_->verticalHeader()->setDefaultSectionSize(42);
+    accountTable_->verticalHeader()->setDefaultSectionSize(56);
     accountTable_->horizontalHeader()->setStretchLastSection(false);
     accountTable_->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
 
@@ -118,13 +115,13 @@ void LauncherPage::configureTable() {
         projectpotato::ui::models::AccountTableModel::UpdateColumn,
         updateDelegate_);
 
-    accountTable_->setColumnWidth(projectpotato::ui::models::AccountTableModel::SelectedColumn, 48);
-    accountTable_->setColumnWidth(projectpotato::ui::models::AccountTableModel::AccountColumn, 230);
-    accountTable_->setColumnWidth(projectpotato::ui::models::AccountTableModel::CharacterColumn, 190);
-    accountTable_->setColumnWidth(projectpotato::ui::models::AccountTableModel::InjectDllsColumn, 120);
-    accountTable_->setColumnWidth(projectpotato::ui::models::AccountTableModel::InjectModsColumn, 120);
-    accountTable_->setColumnWidth(projectpotato::ui::models::AccountTableModel::LaunchColumn, 118);
-    accountTable_->setColumnWidth(projectpotato::ui::models::AccountTableModel::UpdateColumn, 118);
+    accountTable_->setColumnWidth(projectpotato::ui::models::AccountTableModel::SelectedColumn, 52);
+    accountTable_->setColumnWidth(projectpotato::ui::models::AccountTableModel::AccountColumn, 208);
+    accountTable_->setColumnWidth(projectpotato::ui::models::AccountTableModel::CharacterColumn, 248);
+    accountTable_->setColumnWidth(projectpotato::ui::models::AccountTableModel::InjectDllsColumn, 124);
+    accountTable_->setColumnWidth(projectpotato::ui::models::AccountTableModel::InjectModsColumn, 124);
+    accountTable_->setColumnWidth(projectpotato::ui::models::AccountTableModel::LaunchColumn, 126);
+    accountTable_->setColumnWidth(projectpotato::ui::models::AccountTableModel::UpdateColumn, 126);
 }
 
 } // namespace projectpotato::ui::pages

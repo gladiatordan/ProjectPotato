@@ -54,6 +54,18 @@ Launch `ProjectPotato.exe` from the build output directory. On first run the app
 
 All of those folders live relative to the executable directory so the app stays portable.
 
+## Regenerate Mockup Assets
+
+The first-pass Qt art assets are extracted from the flattened mockup at `resources/source/projectpotato_mockup.png`.
+
+Run the extractor with:
+
+```powershell
+& 'C:\Program Files\PostgreSQL\18\pgAdmin 4\python\python.exe' tools\extract_mockup_assets.py
+```
+
+The script recreates `resources/assets/`, generates hover variants, and prints every emitted asset path.
+
 ## Legacy Experimental Code
 
 Older experiments under `projects/` and `Dependencies/` are preserved but are no longer part of the default build. If you explicitly want them too, configure with:

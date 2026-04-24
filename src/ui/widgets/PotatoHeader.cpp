@@ -1,50 +1,26 @@
 #include "ui/widgets/PotatoHeader.hpp"
 
 #include <QHBoxLayout>
-#include <QLabel>
 #include <QPainter>
-#include <QPixmap>
-#include <QVBoxLayout>
 
 #include "ui/widgets/PotatoWindowControls.hpp"
 
 namespace projectpotato::ui::widgets {
 
 PotatoHeader::PotatoHeader(QWidget* parent)
-    : QWidget(parent) {
+    : QWidget(parent)
+    , headerArt_(":/assets/header/projectpotato_header_full.png") {
     setObjectName("PotatoHeader");
-    setMinimumHeight(132);
-    setMaximumHeight(132);
+    setMinimumHeight(236);
+    setMaximumHeight(236);
 
     auto* layout = new QHBoxLayout(this);
-    layout->setContentsMargins(24, 18, 18, 18);
-    layout->setSpacing(18);
-
-    logoLabel_ = new QLabel(this);
-    logoLabel_->setFixedSize(76, 76);
-    logoLabel_->setPixmap(QPixmap(":/projectpotato_logo.png")
-                              .scaled(76, 76, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-
-    titleLabel_ = new QLabel("ProjectPotato", this);
-    titleLabel_->setObjectName("HeaderTitle");
-
-    subtitleLabel_ = new QLabel("Portable launcher shell, diagnostics harness, and service console", this);
-    subtitleLabel_->setObjectName("HeaderSubtitle");
-
-    auto* textLayout = new QVBoxLayout();
-    textLayout->setContentsMargins(0, 4, 0, 0);
-    textLayout->setSpacing(6);
-    textLayout->addWidget(titleLabel_);
-    textLayout->addWidget(subtitleLabel_);
-    textLayout->addStretch(1);
-
-    auto* textContainer = new QWidget(this);
-    textContainer->setLayout(textLayout);
+    layout->setContentsMargins(18, 16, 18, 18);
+    layout->setSpacing(0);
 
     windowControls_ = new PotatoWindowControls(this);
 
-    layout->addWidget(logoLabel_, 0, Qt::AlignTop);
-    layout->addWidget(textContainer, 1);
+    layout->addStretch(1);
     layout->addWidget(windowControls_, 0, Qt::AlignTop);
 }
 
@@ -59,24 +35,17 @@ PotatoWindowControls* PotatoHeader::windowControls() const {
 void PotatoHeader::paintEvent(QPaintEvent* event) {
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing, true);
+    painter.setRenderHint(QPainter::SmoothPixmapTransform, true);
 
-    QLinearGradient backgroundGradient(rect().topLeft(), rect().bottomLeft());
-    backgroundGradient.setColorAt(0.0, QColor(48, 29, 18, 245));
-    backgroundGradient.setColorAt(0.45, QColor(18, 18, 24, 220));
-    backgroundGradient.setColorAt(1.0, QColor(10, 11, 15, 255));
-    painter.fillRect(rect(), backgroundGradient);
+    painter.fillRect(rect(), QColor(6, 8, 12));
 
-    const QPixmap banner(":/projectpotato_headerbanner.png");
-    if (!banner.isNull()) {
-        painter.setOpacity(0.23);
-        painter.drawPixmap(rect(), banner);
-        painter.setOpacity(1.0);
+    if (!headerArt_.isNull()) {
+        const QRect sourceRect(44, 12, headerArt_.width() - 214, headerArt_.height() - 26);
+        const QRect targetRect(10, 0, width() - 104, height() - 8);
+        painter.drawPixmap(targetRect, headerArt_, sourceRect);
     }
 
-    QLinearGradient edgeGlow(rect().topLeft(), rect().topRight());
-    edgeGlow.setColorAt(0.0, QColor(176, 124, 67, 210));
-    edgeGlow.setColorAt(1.0, QColor(79, 141, 181, 170));
-    painter.fillRect(QRect(0, height() - 3, width(), 3), edgeGlow);
+    painter.fillRect(QRect(width() - 188, 12, 176, 52), QColor(5, 7, 10, 210));
 
     QWidget::paintEvent(event);
 }

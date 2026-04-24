@@ -1,8 +1,7 @@
 #pragma once
 
+#include <QPixmap>
 #include <QWidget>
-
-class QLabel;
 
 namespace projectpotato::ui::widgets {
 
@@ -21,9 +20,7 @@ protected:
     void paintEvent(QPaintEvent* event) override;
 
 private:
-    QLabel* logoLabel_{nullptr};
-    QLabel* titleLabel_{nullptr};
-    QLabel* subtitleLabel_{nullptr};
+    QPixmap headerArt_;
     PotatoWindowControls* windowControls_{nullptr};
 };
 

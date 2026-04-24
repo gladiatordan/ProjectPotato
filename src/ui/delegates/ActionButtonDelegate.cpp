@@ -1,10 +1,9 @@
 #include "ui/delegates/ActionButtonDelegate.hpp"
 
-#include <QApplication>
 #include <QMouseEvent>
 #include <QPainter>
-#include <QStyle>
-#include <QStyleOptionButton>
+
+#include "ui/models/AccountTableModel.hpp"
 
 namespace projectpotato::ui::delegates {
 
@@ -16,15 +15,18 @@ void ActionButtonDelegate::paint(
     QPainter* painter,
     const QStyleOptionViewItem& option,
     const QModelIndex& index) const {
-    QStyleOptionButton buttonOption;
-    buttonOption.rect = option.rect.adjusted(8, 6, -8, -6);
-    buttonOption.state = QStyle::State_Enabled;
-    if (option.state & QStyle::State_MouseOver) {
-        buttonOption.state |= QStyle::State_MouseOver;
-    }
-    buttonOption.text = index.data(Qt::DisplayRole).toString();
+    const bool hovered = (option.state & QStyle::State_MouseOver) != 0;
+    const bool isLaunch =
+        index.column() == projectpotato::ui::models::AccountTableModel::LaunchColumn;
+    const QPixmap asset = QPixmap(
+        isLaunch
+            ? (hovered ? ":/assets/buttons/launch_hover.png" : ":/assets/buttons/launch_normal.png")
+            : (hovered ? ":/assets/buttons/update_hover.png" : ":/assets/buttons/update_normal.png"));
 
-    QApplication::style()->drawControl(QStyle::CE_PushButton, &buttonOption, painter);
+    painter->save();
+    painter->setRenderHint(QPainter::SmoothPixmapTransform, true);
+    painter->drawPixmap(option.rect.adjusted(8, 7, -8, -7), asset);
+    painter->restore();
 }
 
 bool ActionButtonDelegate::editorEvent(

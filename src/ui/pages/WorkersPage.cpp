@@ -4,6 +4,8 @@
 #include <QListWidget>
 #include <QVBoxLayout>
 
+#include "ui/widgets/NineSliceFrame.hpp"
+
 namespace projectpotato::ui::pages {
 
 WorkersPage::WorkersPage(QWidget* parent)
@@ -12,11 +14,12 @@ WorkersPage::WorkersPage(QWidget* parent)
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(16);
 
-    auto* overviewPanel = new QWidget(this);
-    overviewPanel->setProperty("class", "panel");
+    auto* overviewPanel = new projectpotato::ui::widgets::NineSliceFrame(
+        projectpotato::ui::widgets::NineSliceFrame::Skin::Panel, this);
+    overviewPanel->setObjectName("WorkersPanel");
 
     auto* overviewLayout = new QVBoxLayout(overviewPanel);
-    overviewLayout->setContentsMargins(20, 20, 20, 20);
+    overviewLayout->setContentsMargins(22, 22, 22, 22);
     overviewLayout->setSpacing(10);
 
     auto* titleLabel = new QLabel("Workers Harness", overviewPanel);

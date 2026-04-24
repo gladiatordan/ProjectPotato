@@ -3,6 +3,7 @@
 #include <QWidget>
 
 class QButtonGroup;
+class QPushButton;
 
 namespace projectpotato::ui::widgets {
 
@@ -19,6 +20,9 @@ signals:
 
 private:
     QButtonGroup* buttonGroup_{nullptr};
+    QPushButton* launcherButton_{nullptr};
+    QPushButton* workersButton_{nullptr};
+    QPushButton* settingsButton_{nullptr};
 };
 
 } // namespace projectpotato::ui::widgets
