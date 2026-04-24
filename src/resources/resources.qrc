@@ -1,0 +1,7 @@
+<RCC>
+    <qresource prefix="/">
+        <file alias="style.qss">style.qss</file>
+        <file alias="projectpotato_headerbanner.png">../../assets/projectpotato_headerbanner.png</file>
+        <file alias="projectpotato_logo.png">../../assets/projectpotato_logo.png</file>
+    </qresource>
+</RCC>

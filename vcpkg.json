@@ -1,12 +1,8 @@
 {
-	"name": "project-potato",
-	"version": "0.1.0",
-	"dependencies": [
-		"qtbase",
-		"qtsvg",
-		"glaze",
-		"openssl",
-		"ms-gsl"
-	],
-	"builtin-baseline": "7ffcbfcc40de93da695b6b389b6fa7541d2e419a"
+  "name": "project-potato",
+  "version": "0.1.0",
+  "dependencies": [
+    "qtbase"
+  ],
+  "builtin-baseline": "7ffcbfcc40de93da695b6b389b6fa7541d2e419a"
 }
